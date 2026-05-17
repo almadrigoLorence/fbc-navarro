@@ -456,7 +456,7 @@ const SLIDES = [
   {
     bg: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&q=80",
     title: "Sunday Worship Service",
-    desc: "Join us every Sunday at 9:00 AM and 11:00 AM for worship and the Word."
+    desc: "Join us every Sunday at 9:00 AM and 12:00 PM for worship and the Word."
   },
   {
     bg: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1400&q=80",
@@ -714,10 +714,9 @@ function HomePage({ announcements, events }) {
             </thead>
             <tbody>
               {[
-                ["Sunday","Morning Worship","9:00 AM & 11:00 AM","Main Sanctuary"],
-                ["Sunday","Youth Service","1:00 PM","Youth Hall"],
-                ["Wednesday","Bible Study","6:30 PM","Fellowship Room"],
-                ["Friday","Prayer Meeting","6:00 PM","Main Sanctuary"],
+                ["Sunday","Morning Worship","9:00 AM & 12:00 AM","FBC Navarro"],
+                ["Sunday","Youth Service","1:00 PM","FBC Navarro 2nd Floor"],
+                ["Wednesday","Prayer Meeting","7:30 PM","FBC Navarro / Online"],
               ].map(([day,svc,time,loc]) => (
                 <tr key={day+svc}>
                   <td>{day}</td><td>{svc}</td><td>{time}</td><td>{loc}</td>
@@ -737,7 +736,7 @@ function HomePage({ announcements, events }) {
             <div className="contact-info">
               {[
                 ["Address","Navarro, General Trias, Cavite, Philippines"],
-                ["Sunday Services","9:00 AM · 12:00 AM"],
+                ["Sunday Services","9:00 AM · 12:00 PM"],
                 ["Phone","+63 (963) 776-4918"],
                 ["Email","faithwaybaptistnavarro@gmail.com"],
                 ["Facebook","https://web.facebook.com/share/g/17C53RmW8o/"],
@@ -854,11 +853,11 @@ function AboutPage() {
           <div className="section-heading">Our Pastoral Staff</div>
           <div className="staff-grid">
             {[
-              ["Pastor","Senior Pastor","✝️"],
-              ["Assoc. Pastor","Associate Pastor","📖"],
-              ["Youth Pastor","Youth & Young Adults","🎯"],
-              ["Worship Leader","Worship Ministry","🎵"],
-              ["Deacon Board","Church Deacons","🙏"],
+              ["Pastor","Jayson Jay Magbojos","✝️"],
+              // ["Assoc. Pastor","Associate Pastor","📖"],
+              // ["Youth Pastor","Youth & Young Adults","🎯"],
+              ["Young Professional President","Lorence Almadrigo","🎵"],
+              ["Kitchen Ministry Heads","Mr. & Mrs. Llona","🙏"],
             ].map(([name, role, emoji]) => (
               <div key={name} className="staff-card">
                 <div className="staff-avatar">{emoji}</div>
