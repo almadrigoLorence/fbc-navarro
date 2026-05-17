@@ -737,10 +737,10 @@ function HomePage({ announcements, events }) {
             <div className="contact-info">
               {[
                 ["Address","Navarro, General Trias, Cavite, Philippines"],
-                ["Sunday Services","9:00 AM · 11:00 AM"],
-                ["Phone","+63 (046) 000-0000"],
+                ["Sunday Services","9:00 AM · 12:00 AM"],
+                ["Phone","+63 (963) 776-4918"],
                 ["Email","faithwaybaptistnavarro@gmail.com"],
-                ["Facebook","fb.com/FaithwayBaptistNavarro"],
+                ["Facebook","https://web.facebook.com/share/g/17C53RmW8o/"],
               ].map(([label, val]) => (
                 <div key={label} className="contact-item">
                   <div className="contact-label">{label}</div>
