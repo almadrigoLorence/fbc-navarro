@@ -7,7 +7,7 @@ const globalStyles = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Source Serif 4', Georgia, serif;
+    font-family: 'Trebuchet MS', sans-serif;
     background: #ffffff;
     color: #1a1a1a;
     min-height: 100vh;
@@ -23,7 +23,7 @@ const globalStyles = `
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Playfair Display', Georgia, serif;
+    font-family: 'Trebuchet MS', sans-serif;
   }
 
   /* Nav */
@@ -36,7 +36,7 @@ const globalStyles = `
     height: 64px;
   }
   .nav-logo {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Trebuchet MS', sans-serif;
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: 0.02em;
