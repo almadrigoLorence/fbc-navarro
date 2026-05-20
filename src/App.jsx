@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence } from "firebase/firestore";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const globalStyles = `
@@ -4780,7 +4780,8 @@ function AdminPage({
   pageContents, setPageContents,
   showToast,
   adminCredentials, setAdminCredentials,
-  orders, setOrders
+  orders, setOrders,
+  dbStatus
 }) {
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -4832,6 +4833,26 @@ function AdminPage({
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div className="admin-badge">Admin Panel</div>
           <div className="admin-topbar-text">Faithway Baptist Church Navarro — Management Console</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {dbStatus === "online" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.4)", borderRadius: "999px", padding: "0.3rem 0.75rem", fontSize: "0.72rem", fontWeight: 600, color: "#16a34a" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }}></span>
+              Cloud Synced
+            </div>
+          )}
+          {dbStatus === "offline" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(234,179,8,0.15)", border: "1px solid rgba(234,179,8,0.5)", borderRadius: "999px", padding: "0.3rem 0.75rem", fontSize: "0.72rem", fontWeight: 600, color: "#854d0e" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#eab308", display: "inline-block", boxShadow: "0 0 6px #eab308" }}></span>
+              Offline Cache Mode — Check VPN / Network
+            </div>
+          )}
+          {dbStatus === "connecting" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: "999px", padding: "0.3rem 0.75rem", fontSize: "0.72rem", fontWeight: 600, color: "#4338ca" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#6366f1", display: "inline-block", animation: "pulse 1.2s infinite" }}></span>
+              Connecting to Database…
+            </div>
+          )}
         </div>
       </div>
       <div className="admin-layout">
@@ -5003,13 +5024,36 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
+// Enable offline caching so the site still works on restricted corporate/VPN networks
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === "failed-precondition") {
+    console.warn("Firestore offline persistence failed: multiple tabs open.");
+  } else if (err.code === "unimplemented") {
+    console.warn("Firestore offline persistence is not available in this browser.");
+  }
+});
+
 // ─── APP MAIN ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("home");
   const [cart, setCart] = useState([]);
+  const [dbStatus, setDbStatus] = useState("connecting");
 
   // Reset scroll to top on every page change
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [page]);
+
+  // Track browser online/offline events for VPN awareness
+  useEffect(() => {
+    const goOnline = () => setDbStatus(prev => prev === "offline" ? "connecting" : prev);
+    const goOffline = () => setDbStatus("offline");
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    if (!navigator.onLine) setDbStatus("offline");
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
   
   // Toast Alert State
   const [toast, setToast] = useState(null);
@@ -5179,15 +5223,42 @@ export default function App() {
       { docName: "orders", stateSetter: setOrdersState, localKey: "fbc_orders", defaultValue: [] }
     ];
 
+    let onlineConfirmed = false;
+
     const unsubscribes = syncs.map(({ docName, stateSetter, localKey, defaultValue }) => {
-      return onSnapshot(doc(db, "fbc_navarro", docName), (snapshot) => {
+      return onSnapshot(doc(db, "fbc_navarro", docName), { includeMetadataChanges: false }, (snapshot) => {
+        // Mark as online on first successful snapshot callback
+        if (!onlineConfirmed) {
+          onlineConfirmed = true;
+          setDbStatus("online");
+        }
+
         if (snapshot.exists()) {
           const cloudData = snapshot.data()?.data;
-          if (cloudData !== undefined) {
+          // === SAFEGUARD: Only sync from cloud if cloud data is meaningful ===
+          // Prevents an empty or corrupted cloud record from wiping out good local data
+          const isCloudDataMeaningful = cloudData !== undefined && cloudData !== null &&
+            (Array.isArray(cloudData) ? cloudData.length > 0 : (typeof cloudData === "object" ? Object.keys(cloudData).length > 0 : true));
+
+          if (isCloudDataMeaningful) {
             stateSetter(cloudData);
             try { localStorage.setItem(localKey, JSON.stringify(cloudData)); } catch (e) {}
+          } else {
+            // Cloud doc exists but data is empty — upload local data back to cloud to restore it
+            const currentLocal = localStorage.getItem(localKey);
+            try {
+              if (currentLocal) {
+                const parsed = JSON.parse(currentLocal);
+                if (parsed && (Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0)) {
+                  setDoc(doc(db, "fbc_navarro", docName), { data: parsed }).catch(err => {
+                    console.error(`Error restoring ${docName} from local:`, err);
+                  });
+                }
+              }
+            } catch (e) {}
           }
         } else {
+          // Document doesn't exist yet — seed it from local storage or defaults
           const currentLocal = localStorage.getItem(localKey);
           let seedData = defaultValue;
           try {
@@ -5203,7 +5274,9 @@ export default function App() {
           });
         }
       }, (error) => {
+        // Connection error — mark as offline, but keep serving local cache data
         console.error(`Snapshot error for ${docName}:`, error);
+        setDbStatus("offline");
       });
     });
 
@@ -5276,6 +5349,7 @@ export default function App() {
       {page === "admin" && (
         isLogged ? (
           <AdminPage 
+            dbStatus={dbStatus}
             announcements={announcements} 
             setAnnouncements={setAnnouncements} 
             events={events} 
