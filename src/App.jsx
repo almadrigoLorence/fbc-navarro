@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as XLSX from "xlsx";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const globalStyles = `
@@ -873,7 +875,97 @@ const globalStyles = `
   .filter-select { min-width: 140px; }
 `;
 
-// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+// 🌟 DEFAULT DATA 🌟
+const DEFAULT_PAGE_CONTENTS = {
+  home: {
+    heroTitle: "Welcome to Faithway Baptist Church",
+    heroTitleBold: "Navarro",
+    heroDesc: "A community rooted in faith, love, and service to God and one another.",
+    statsMembers: "200+",
+    statsYears: "3+",
+    statsServices: "2",
+    statsMinistries: "6",
+    missionTitle: "Proclaiming the Gospel, Building Disciples",
+    missionText: "We are committed to sharing the transforming power of the Gospel of Jesus Christ to every person in our community and beyond - one life at a time.",
+    missionPoints: [
+      "Rooted in Scripture and the Word of God",
+      "Building a community of genuine disciples",
+      "Serving Navarro with love and compassion",
+      "Welcoming all people from every walk of life"
+    ],
+    scheduleTitle: "Join Us for Worship",
+    scheduleSub: "Our doors are always open. Come and worship with us.",
+    scheduleItems: [
+      { icon: "⛪", day: "Sunday", name: "Morning Worship", time: "9:00 AM & 12:00 PM", loc: "FBC Navarro Main Sanctuary" },
+      { icon: "🔥", day: "Sunday", name: "Youth Service", time: "1:00 PM", loc: "FBC Navarro 2nd Floor" },
+      { icon: "📖", day: "Wednesday", name: "Prayer Meeting", time: "7:30 PM", loc: "FBC Navarro / Online" }
+    ],
+    contactTitle: "We'd Love to Hear From You",
+    contactSub: "Have questions? Want to visit? Reach out to us anytime.",
+    contactInfoTitle: "Contact Information",
+    contactInfoSub: "We're here to help. Reach out through any of the channels below.",
+    contactAddress: "Navarro, General Trias, Cavite, Philippines",
+    contactServices: "9:00 AM & 12:00 PM",
+    contactPhone: "+63 (963) 776-4918",
+    contactEmail: "faithwaybaptistnavarro@gmail.com",
+    contactFacebook: "FBC Navarro Community Group",
+    missionaries: []
+  },
+  about: {
+    heroTitle: "About Faithway Baptist Church Navarro",
+    heroSub: "A church built on the Word of God, committed to community, worship, and making disciples for Jesus Christ.",
+    storyBadge: "Who We Are",
+    storyTitle: "Our Story",
+    storyParagraph1: "Faithway Baptist Church Navarro began as a small group of believers in the Navarro community of General Trias, Cavite, united by a shared desire to worship God faithfully and serve their neighbors with love.",
+    storyParagraph2: "Over the years, the church has grown into a vibrant congregation deeply rooted in Scripture and passionately committed to the Great Commission. Today, we continue to be a spiritual home for families, youth, and individuals seeking to know and follow Jesus Christ.",
+    storyImage: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80",
+    storyPoints: [
+      "Southern Baptist denomination",
+      "Located in Navarro, General Trias, Cavite",
+      "Committed to Scripture and the Great Commission",
+      "A family-like community where all are welcome"
+    ],
+    beliefsTitle: "What We Believe",
+    beliefsSub: "Our faith is grounded in the eternal truths of God's Word.",
+    beliefsItems: [
+      { title: "The Bible", text: "We believe the Holy Bible is the inspired, inerrant, and authoritative Word of God - the supreme standard for all faith and conduct." },
+      { title: "The Trinity", text: "We believe in one God eternally existing in three persons: Father, Son, and Holy Spirit, co-equal and co-eternal." },
+      { title: "Salvation", text: "We believe salvation is by grace alone, through faith alone, in Christ alone - not by works, but as a gift from God." },
+      { title: "The Church", text: "We believe the local church is a body of baptized believers who gather regularly for worship, instruction, fellowship, and service." },
+      { title: "Baptism", text: "We practice believer's baptism by immersion as a public declaration of faith and identification with Christ's death and resurrection." },
+      { title: "The Lord's Supper", text: "We observe the Lord's Supper as a memorial of Christ's sacrifice, proclaiming His death until He comes." }
+    ],
+    staffTitle: "Our Staff",
+    staffItems: [
+      { emoji: "👨‍💼", name: "Pastor Jayson Jay Magbojos", role: "Senior Pastor" },
+      { emoji: "🤵", name: "Lorence Almadrigo", role: "Young Professional President" },
+      { emoji: "🎤", name: "John Paul Llona", role: "Song Leader" },
+      { emoji: "🍳", name: "Mr. & Mrs. Llona", role: "Kitchen Ministry Heads" }
+    ],
+    infoTitle: "General Information",
+    infoItems: [
+      { key: "Denomination", val: "Southern Baptist" },
+      { key: "Location", val: "Navarro, General Trias, Cavite" },
+      { key: "Address", val: "Navarro, General Trias, Cavite 4107" },
+      { key: "Sunday Worship", val: "9:00 AM & 12:00 PM" },
+      { key: "Youth Service", val: "Sunday 1:00 PM" },
+      { key: "Wednesday Bible Study", val: "7:30 PM" },
+      { key: "Contact", val: "faithwaybaptistnavarro@gmail.com" },
+      { key: "Phone", val: "+63 (963) 776-4918" }
+    ]
+  },
+  activities: {
+    heroTitle: "Our Church Activities",
+    heroSub: "See the latest updates, highlights, and testimonies from our recent Sunday School, Services, and events.",
+    birthdaysTitle: "Happy Birthday! 🎂🎉",
+    birthdaysSub: "Join us in celebrating our brothers and sisters who have birthdays this month."
+  },
+  shop: {
+    heroTitle: "Our Products",
+    heroSub: "Browse our merchandise. All proceeds support our church ministries and outreach activities."
+  }
+};
+
 const DEFAULT_SLIDES = [
   {
     bg: "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1600&q=85",
@@ -898,7 +990,7 @@ const DEFAULT_SLIDES = [
 const DEFAULT_MISSION = {
   image: "https://images.unsplash.com/photo-1560439514-4e9645039924?w=900&q=80",
   title: "Proclaiming the Gospel, Building Disciples",
-  text: "We are committed to sharing the transforming power of the Gospel of Jesus Christ to every person in our community and beyond — one life at a time.",
+  text: "We are committed to sharing the transforming power of the Gospel of Jesus Christ to every person in our community and beyond - one life at a time.",
   points: [
     "Rooted in Scripture and the Word of God",
     "Building a community of genuine disciples",
@@ -915,9 +1007,9 @@ const DEFAULT_STATS = {
 };
 
 const DEFAULT_PRODUCTS = [
-  { id: "1", name: "Faithway Signature Shirt", price: 350, description: "Official FBC Navarro logo shirt in premium cotton.", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&q=80", available: true },
-  { id: "2", name: "FBC Youth Theme Tee", price: 300, description: "Inspiring youth ministry t-shirt for all ages.", image: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=500&q=80", available: true },
-  { id: "3", name: "Sunday School Kids Cap", price: 200, description: "Comfortable kids cap with Bible verse embroidery.", image: "https://images.unsplash.com/photo-1534215754734-18e55d13e346?w=500&q=80", available: false }
+  { id: "1", name: "Faithway Signature Shirt", price: 350, description: "Official FBC Navarro logo shirt in premium cotton.", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&q=80", available: true, sizes: "S, M, L, XL", stock: 15 },
+  { id: "2", name: "FBC Youth Theme Tee", price: 300, description: "Inspiring youth ministry t-shirt for all ages.", image: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=500&q=80", available: true, sizes: "S, M, L", stock: 20 },
+  { id: "3", name: "Sunday School Kids Cap", price: 200, description: "Comfortable kids cap with Bible verse embroidery.", image: "https://images.unsplash.com/photo-1534215754734-18e55d13e346?w=500&q=80", available: false, sizes: "One Size", stock: 0 }
 ];
 
 const DEFAULT_BIRTHDAYS = [
@@ -931,14 +1023,17 @@ const DEFAULT_ACTIVITIES = [
   { id: "3", title: "Youth Service & Fellowship", description: "Over 40 youth gathered for a night of praise, small groups, and games. Focus was on peer pressure and biblical principles.", date: "2026-05-03", time: "01:00 PM", location: "2nd Floor Hall", ministry: "Youth Ministry", image: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&q=80" }
 ];
 
-const MINISTRIES = [
-  { icon: "👶", title: "Children's Ministry", desc: "Nurturing faith in children ages 0–12 through age-appropriate Bible teaching and worship.", freq: "Every Sunday" },
-  { icon: "🎯", title: "Youth Ministry", desc: "Discipling teenagers through teaching, fellowship, camps, and service opportunities.", freq: "Sunday & Friday" },
-  { icon: "👨‍👩‍👧‍👦", title: "Men's Fellowship", desc: "Encouraging men to grow in Christlikeness through accountability groups and service.", freq: "Monthly" },
-  { icon: "🌸", title: "Women's Ministry", desc: "Building up women in faith through Bible studies, prayer, mentorship, and fellowship.", freq: "Weekly" },
-  { icon: "🎵", title: "Worship Ministry", desc: "Leading the congregation in heartfelt, Scripture-centered worship through music and song.", freq: "Every Sunday" },
-  { icon: "🌍", title: "Outreach Ministry", desc: "Extending the love of Christ through community service, evangelism, and missions support.", freq: "Monthly" },
+const DEFAULT_MINISTRIES = [
+  { id: "1", icon: "👶", title: "Children's Ministry", desc: "Nurturing faith in children ages 0-12 through age-appropriate Bible teaching and worship.", freq: "Every Sunday" },
+  { id: "2", icon: "🔥", title: "Youth Ministry", desc: "Discipling teenagers through teaching, fellowship, camps, and service opportunities.", freq: "Sunday & Friday" },
+  { id: "3", icon: "👨‍👩‍👧‍👦", title: "Men's Fellowship", desc: "Encouraging men to grow in Christlikeness through accountability groups and service.", freq: "Monthly" },
+  { id: "4", icon: "👩", title: "Women's Ministry", desc: "Building up women in faith through Bible studies, prayer, mentorship, and fellowship.", freq: "Weekly" },
+  { id: "5", icon: "🎤", title: "Worship Ministry", desc: "Leading the congregation in heartfelt, Scripture-centered worship through music and song.", freq: "Every Sunday" },
+  { id: "6", icon: "🤝", title: "Outreach Ministry", desc: "Extending the love of Christ through community service, evangelism, and missions support.", freq: "Monthly" },
 ];
+
+const MINISTRIES = DEFAULT_MINISTRIES;
+
 
 // ─── STORAGE HELPERS ──────────────────────────────────────────────────────────
 const useLocalStorage = (key, initial) => {
@@ -952,6 +1047,86 @@ const useLocalStorage = (key, initial) => {
   }, [key]);
   return [val, save];
 };
+const handleLocalImageUpload = (e, callback, showToast) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  if (!file.type.startsWith("image/")) {
+    showToast("Please upload an image file.", "error");
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+      
+      const MAX_SIZE = 800;
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height = Math.round((height * MAX_SIZE) / width);
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width = Math.round((width * MAX_SIZE) / height);
+          height = MAX_SIZE;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      
+      // Determine if image format supports transparency (PNG, GIF, WEBP)
+      const isTransparent = file.type === "image/png" || file.type === "image/gif" || file.type === "image/webp";
+      
+      if (isTransparent) {
+        ctx.clearRect(0, 0, width, height);
+      }
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Keep transparent image as native mime type to preserve transparency
+      const base64 = isTransparent ? canvas.toDataURL(file.type) : canvas.toDataURL("image/jpeg", 0.75);
+      callback(base64);
+    };
+    img.src = event.target.result;
+  };
+  reader.onerror = () => {
+    showToast("Failed to read image file.", "error");
+  };
+  reader.readAsDataURL(file);
+};
+
+const obfuscate = (str) => {
+  if (!str) return "";
+  const key = 42;
+  let result = "";
+  for (let i = 0; i < str.length; i++) {
+    result += String.fromCharCode(str.charCodeAt(i) ^ key);
+  }
+  return btoa(unescape(encodeURIComponent(result)));
+};
+
+const deobfuscate = (str) => {
+  if (!str) return "";
+  try {
+    const decoded = decodeURIComponent(escape(atob(str)));
+    const key = 42;
+    let result = "";
+    for (let i = 0; i < decoded.length; i++) {
+      result += String.fromCharCode(decoded.charCodeAt(i) ^ key);
+    }
+    return result;
+  } catch (e) {
+    return "";
+  }
+};
+
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const today = () => new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 const fmtCurrency = (n) => "₱" + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2 });
@@ -1038,8 +1213,7 @@ function ImageCuratorModal({ type, onSelect, onClose }) {
   );
 }
 
-// ─── NAV ──────────────────────────────────────────────────────────────────────
-function Nav({ page, setPage, isLogged, onLogout }) {
+function Nav({ page, setPage, isLogged, onLogout, brandSettings }) {
   const links = [
     { id: "home", label: "Home" },
     { id: "about", label: "About" },
@@ -1050,7 +1224,13 @@ function Nav({ page, setPage, isLogged, onLogout }) {
   return (
     <nav className="nav">
       <div className="nav-logo" onClick={() => setPage("home")}>
-        <div className="nav-logo-icon">✝️</div>
+        <div className="nav-logo-icon" style={brandSettings?.logoType === "image" ? { background: "transparent", border: "none", boxShadow: "none", width: "48px", height: "48px" } : {}}>
+          {brandSettings?.logoType === "image" && brandSettings?.logoImage ? (
+            <img src={brandSettings.logoImage} alt="Logo" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+          ) : (
+            brandSettings?.logoEmoji || "✝️"
+          )}
+        </div>
         <div>
           <div className="nav-logo-text">Faithway Baptist Church</div>
           <span className="nav-logo-sub">Navarro, General Trias, Cavite</span>
@@ -1123,14 +1303,33 @@ function Hero({ slides }) {
 }
 
 // ─── HOME PAGE ────────────────────────────────────────────────────────────────
-function HomePage({ announcements, events, slides, mission, stats, birthdays, setPage }) {
+function HomePage({ announcements, events, slides, mission, stats, birthdays, ministries, setPage, brandSettings, pageContents, inquiries, setInquiries, showToast }) {
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
   const [sent, setSent] = useState(false);
 
   const handleContact = () => {
     if (!contactForm.name || !contactForm.message) return;
-    setSent(true);
+    
+    // Save to inquiries state
+    const targetEmail = brandSettings?.inquiryEmail || "lorence.almadrigo@gmail.com";
+    const newInq = {
+      id: newId(),
+      name: contactForm.name,
+      email: contactForm.email || "N/A",
+      message: contactForm.message,
+      date: today(),
+      status: "unread"
+    };
+    setInquiries([newInq, ...inquiries]);
+    
+    // Open system mail client with pre-filled content
+    const subject = encodeURIComponent("Inquiry from Faithway Church Website");
+    const body = encodeURIComponent(`Name: ${contactForm.name}\nEmail: ${contactForm.email}\nMessage: ${contactForm.message}`);
+    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+    
+    showToast(`Inquiry sent to ${targetEmail} and logged!`);
     setContactForm({ name: "", email: "", message: "" });
+    setSent(true);
     setTimeout(() => setSent(false), 4000);
   };
 
@@ -1138,6 +1337,7 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
   const latestAnnouncements = announcements.slice(0, 6);
   const m = mission || DEFAULT_MISSION;
   const st = stats || DEFAULT_STATS;
+  const home = pageContents?.home || {};
 
   return (
     <div className="page">
@@ -1147,10 +1347,10 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
       <div className="stats-bar">
         <div className="stats-inner">
           {[
-            { n: st.members, l: "Church Members" },
-            { n: st.years, l: "Years of Ministry" },
-            { n: st.services, l: "Sunday Services" },
-            { n: st.ministries, l: "Active Ministries" },
+            { n: home.statsMembers || st.members, l: "Church Members" },
+            { n: home.statsYears || st.years, l: "Years of Ministry" },
+            { n: home.statsServices || st.services, l: "Sunday Services" },
+            { n: home.statsMinistries || st.ministries, l: "Active Ministries" },
           ].map(s => (
             <div key={s.l} className="stat-item">
               <span className="stat-number">{s.n}</span>
@@ -1160,49 +1360,28 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
         </div>
       </div>
 
-      {/* Birthday Celebrants Section */}
-      {birthdays && birthdays.length > 0 && (
-        <div className="section section-alt">
-          <div className="section-inner">
-            <div className="section-header">
-              <div className="section-badge">Celebrations</div>
-              <div className="section-title">Happy Birthday! 🎉</div>
-              <p className="section-sub">Join us in celebrating our brothers and sisters who have birthdays this month.</p>
-            </div>
-            <div className="celebrants-grid">
-              {birthdays.map(b => (
-                <div key={b.id} className="celebrant-card">
-                  <div className="celebrant-avatar" style={{ backgroundImage: `url(${b.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&q=80'})` }} />
-                  <h3>{b.name}</h3>
-                  <div className="celebrant-date">🎂 {b.date}</div>
-                  {b.message && <p className="celebrant-msg">"{b.message}"</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Mission Section */}
       <div className="section">
         <div className="section-inner">
           <div className="mission-split">
-            <div className="mission-img-wrap">
-              <div className="mission-img-bg" style={{ backgroundImage: `url(${m.image})` }} />
-              <div className="mission-float">
-                <div className="mission-float-icon">✝️</div>
-                <div>
-                  <strong>Est. in Navarro</strong>
-                  <span>General Trias, Cavite</span>
-                </div>
-              </div>
+            <div className="mission-img-wrap" style={{ minHeight: "360px", overflow: "hidden", borderRadius: "16px", boxShadow: "var(--shadow)" }}>
+              <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15462.433890250005!2d120.87114620000002!3d14.334771149999996!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33962d3a3d5386c9%3A0xc3b8602b9e672f2e!2sNavarro%2C%20General%20Trias%2C%20Cavite!5e0!3m2!1sen!2sph!4v1716200000000!5m2!1sen!2sph" 
+                width="100%" 
+                height="100%" 
+                style={{ border: 0, minHeight: "360px", display: "block" }} 
+                allowFullScreen="" 
+                loading="lazy" 
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Faithway Baptist Church Navarro Location"
+              />
             </div>
             <div className="mission-text">
               <div className="section-badge">Our Mission</div>
-              <h2>{m.title}</h2>
-              <p>{m.text}</p>
+              <h2>{home.missionTitle || m.title}</h2>
+              <p>{home.missionText || m.text}</p>
               <div className="mission-points">
-                {m.points.map(pt => (
+                {(home.missionPoints || m.points).map(pt => (
                   <div key={pt} className="mission-point">
                     <div className="mission-check">✓</div>
                     {pt}
@@ -1215,6 +1394,29 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
         </div>
       </div>
 
+      {/* Missionaries Section */}
+      {(home.missionaries || []).length > 0 && (
+        <div className="section section-alt">
+          <div className="section-inner">
+            <div className="section-header">
+              <div className="section-badge">Missions</div>
+              <div className="section-title">Supported Missionaries</div>
+              <p className="section-sub">Partnering with faithful servants spreading the Gospel across fields and nations.</p>
+            </div>
+            <div className="celebrants-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+              {(home.missionaries || []).map((m, idx) => (
+                <div key={idx} className="celebrant-card" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(10px)" }}>
+                  <div className="celebrant-avatar" style={{ backgroundImage: `url(${m.photo || 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=400&q=80'})`, borderRadius: "12px" }} />
+                  <h3>{m.name}</h3>
+                  <div className="celebrant-date" style={{ color: "var(--primary)", fontWeight: "600" }}>{m.field}</div>
+                  {m.description && <p className="celebrant-msg" style={{ fontSize: "0.82rem", marginTop: "0.5rem" }}>"{m.description}"</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ministries */}
       <div className="section section-alt">
         <div className="section-inner">
@@ -1224,7 +1426,7 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
             <p className="section-sub">From children to seniors, we have a ministry for every member of your family.</p>
           </div>
           <div className="cards-grid">
-            {MINISTRIES.map(min => (
+            {(ministries || MINISTRIES).map(min => (
               <div key={min.title} className="card">
                 <div className="card-icon">{min.icon}</div>
                 <div className="card-category">Ministry</div>
@@ -1294,15 +1496,15 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
         <div className="section-inner">
           <div className="section-header">
             <div className="section-badge">Weekly Schedule</div>
-            <div className="section-title">Join Us for Worship</div>
-            <p className="section-sub">Our doors are always open. Come and worship with us.</p>
+            <div className="section-title">{home.scheduleTitle || "Weekly Schedule"}</div>
+            <p className="section-sub">{home.scheduleSub || "Our doors are always open. Come and worship with us."}</p>
           </div>
           <div className="schedule-grid">
-            {[
+            {(home.scheduleItems || [
               { icon: "☀️", day: "Sunday", name: "Morning Worship", time: "9:00 AM & 12:00 PM", loc: "FBC Navarro Main Sanctuary" },
               { icon: "🙏", day: "Sunday", name: "Youth Service", time: "1:00 PM", loc: "FBC Navarro 2nd Floor" },
               { icon: "📖", day: "Wednesday", name: "Prayer Meeting", time: "7:30 PM", loc: "FBC Navarro / Online" },
-            ].map(s => (
+            ]).map(s => (
               <div key={s.name} className="schedule-card">
                 <div className="schedule-icon">{s.icon}</div>
                 <div className="schedule-info">
@@ -1322,19 +1524,19 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
         <div className="section-inner">
           <div className="section-header">
             <div className="section-badge">Get in Touch</div>
-            <div className="section-title">We'd Love to Hear From You</div>
-            <p className="section-sub">Have questions? Want to visit? Reach out to us anytime.</p>
+            <div className="section-title">{home.contactTitle || "We'd Love to Hear From You"}</div>
+            <p className="section-sub">{home.contactSub || "Have questions? Want to visit? Reach out to us anytime."}</p>
           </div>
           <div className="contact-split">
             <div className="contact-info-card">
-              <h3>Contact Information</h3>
-              <p>We're here to help. Reach out through any of the channels below.</p>
+              <h3>{home.contactInfoTitle || "Contact Information"}</h3>
+              <p>{home.contactInfoSub || "We're here to help. Reach out through any of the channels below."}</p>
               {[
-                { icon: "📍", label: "Address", value: "Navarro, General Trias, Cavite, Philippines" },
-                { icon: "🕐", label: "Sunday Services", value: "9:00 AM & 12:00 PM" },
-                { icon: "📞", label: "Phone", value: "+63 (963) 776-4918" },
-                { icon: "✉️", label: "Email", value: "faithwaybaptistnavarro@gmail.com" },
-                { icon: "👥", label: "Facebook", value: "FBC Navarro Community Group" },
+                { icon: "📍", label: "Address", value: home.contactAddress || "Navarro, General Trias, Cavite, Philippines" },
+                { icon: "🕐", label: "Sunday Services", value: home.contactServices || "9:00 AM & 12:00 PM" },
+                { icon: "📞", label: "Phone", value: home.contactPhone || "+63 (963) 776-4918" },
+                { icon: "✉️", label: "Email", value: home.contactEmail || "faithwaybaptistnavarro@gmail.com" },
+                { icon: "👥", label: "Facebook", value: home.contactFacebook || "FBC Navarro Community Group" },
               ].map(({ icon, label, value }) => (
                 <div key={label} className="contact-item">
                   <div className="contact-item-icon">{icon}</div>
@@ -1348,7 +1550,7 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
             <div className="contact-form-card">
               <h3>Send Us a Message</h3>
               <p className="form-sub">We'll get back to you as soon as we can.</p>
-              {sent && <div className="alert-success">✓ Message sent! We'll get back to you soon.</div>}
+              {sent && <div className="alert-success">✓ Message logged and sent! We will get back to you soon.</div>}
               <div className="form-group">
                 <label className="form-label">Your Name</label>
                 <input className="form-input" value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name" />
@@ -1372,7 +1574,13 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="footer-logo-wrap">
-              <div className="footer-logo-icon">✝️</div>
+              <div className="footer-logo-icon" style={brandSettings?.logoType === "image" ? { background: "transparent", border: "none", boxShadow: "none", width: "48px", height: "48px" } : {}}>
+                {brandSettings?.logoType === "image" && brandSettings?.logoImage ? (
+                  <img src={brandSettings.logoImage} alt="Logo" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+                ) : (
+                  brandSettings?.logoEmoji || "✝️"
+                )}
+              </div>
               <div>
                 <div className="footer-logo-name">Faithway Baptist Church</div>
                 <div className="footer-logo-sub">Navarro, General Trias, Cavite</div>
@@ -1392,7 +1600,7 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
           <div className="footer-col">
             <h4>Ministries</h4>
             <ul className="footer-links">
-              {MINISTRIES.map(min => (
+              {(ministries || MINISTRIES).map(min => (
                 <li key={min.title}>{min.title}</li>
               ))}
             </ul>
@@ -1417,28 +1625,34 @@ function HomePage({ announcements, events, slides, mission, stats, birthdays, se
 }
 
 // ─── ABOUT PAGE ───────────────────────────────────────────────────────────────
-function AboutPage({ setPage }) {
+function AboutPage({ setPage, brandSettings, pageContents, ministries }) {
+  const about = pageContents?.about || {};
   return (
     <div className="page">
       <div className="about-hero">
         <div className="section-badge">Established in Faith</div>
-        <h1>About Faithway Baptist Church Navarro</h1>
-        <p style={{ marginTop: "1.1rem" }}>A church built on the Word of God, committed to community, worship, and making disciples for Jesus Christ.</p>
+        <h1>{about.heroTitle || "About Faithway Baptist Church Navarro"}</h1>
+        <p style={{ marginTop: "1.1rem" }}>{about.heroSub || "A church built on the Word of God, committed to community, worship, and making disciples for Jesus Christ."}</p>
       </div>
 
       <div className="section section-alt">
         <div className="section-inner">
           <div className="mission-split">
             <div className="mission-img-wrap">
-              <div className="mission-img-bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80)" }} />
+              <div className="mission-img-bg" style={{ backgroundImage: `url(${about.storyImage || 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=900&q=80'})` }} />
             </div>
             <div className="mission-text">
-              <div className="section-badge">Who We Are</div>
-              <h2>Our Story</h2>
-              <p>Faithway Baptist Church Navarro began as a small group of believers in the Navarro community of General Trias, Cavite, united by a shared desire to worship God faithfully and serve their neighbors with love.</p>
-              <p>Over the years, the church has grown into a vibrant congregation deeply rooted in Scripture and passionately committed to the Great Commission. Today, we continue to be a spiritual home for families, youth, and individuals seeking to know and follow Jesus Christ.</p>
+              <div className="section-badge">{about.storyBadge || "Who We Are"}</div>
+              <h2>{about.storyTitle || "Our Story"}</h2>
+              <p>{about.storyParagraph1 || "Faithway Baptist Church Navarro began as a small group of believers in the Navarro community of General Trias, Cavite, united by a shared desire to worship God faithfully and serve their neighbors with love."}</p>
+              <p>{about.storyParagraph2 || "Over the years, the church has grown into a vibrant congregation deeply rooted in Scripture and passionately committed to the Great Commission. Today, we continue to be a spiritual home for families, youth, and individuals seeking to know and follow Jesus Christ."}</p>
               <div className="mission-points">
-                {["Southern Baptist denomination", "Located in Navarro, General Trias, Cavite", "Committed to Scripture and the Great Commission", "A family-like community where all are welcome"].map(pt => (
+                {(about.storyPoints || [
+                  "Southern Baptist denomination",
+                  "Located in Navarro, General Trias, Cavite",
+                  "Committed to Scripture and the Great Commission",
+                  "A family-like community where all are welcome"
+                ]).map(pt => (
                   <div key={pt} className="mission-point">
                     <div className="mission-check">✓</div>
                     {pt}
@@ -1453,22 +1667,22 @@ function AboutPage({ setPage }) {
       <div className="section">
         <div className="section-inner">
           <div className="section-header">
-            <div className="section-badge">Core Beliefs</div>
-            <div className="section-title">What We Believe</div>
-            <p className="section-sub">Our faith is grounded in the eternal truths of God's Word.</p>
+            <div className="section-badge">Our Doctrine</div>
+            <div className="section-title">{about.beliefsTitle || "What We Believe"}</div>
+            <p className="section-sub">{about.beliefsSub || "Our faith is grounded in the eternal truths of God's Word."}</p>
           </div>
           <div className="beliefs-grid">
-            {[
-              ["The Bible", "We believe the Holy Bible is the inspired, inerrant, and authoritative Word of God — the supreme standard for all faith and conduct."],
-              ["The Trinity", "We believe in one God eternally existing in three persons: Father, Son, and Holy Spirit, co-equal and co-eternal."],
-              ["Salvation", "We believe salvation is by grace alone, through faith alone, in Christ alone — not by works, but as a gift from God."],
-              ["The Church", "We believe the local church is a body of baptized believers who gather regularly for worship, instruction, fellowship, and service."],
-              ["Baptism", "We practice believer's baptism by immersion as a public declaration of faith and identification with Christ's death and resurrection."],
-              ["The Lord's Supper", "We observe the Lord's Supper as a memorial of Christ's sacrifice, proclaiming His death until He comes."],
-            ].map(([title, text]) => (
-              <div key={title} className="belief-card">
-                <h3>{title}</h3>
-                <p>{text}</p>
+            {(about.beliefsItems || [
+              { title: "The Bible", text: "We believe the Holy Bible is the inspired, inerrant, and authoritative Word of God — the supreme standard for all faith and conduct." },
+              { title: "The Trinity", text: "We believe in one God eternally existing in three persons: Father, Son, and Holy Spirit, co-equal and co-eternal." },
+              { title: "Salvation", text: "We believe salvation is by grace alone, through faith alone, in Christ alone — not by works, but as a gift from God." },
+              { title: "The Church", text: "We believe the local church is a body of baptized believers who gather regularly for worship, instruction, fellowship, and service." },
+              { title: "Baptism", text: "We practice believer's baptism by immersion as a public declaration of faith and identification with Christ's death and resurrection." },
+              { title: "The Lord's Supper", text: "We observe the Lord's Supper as a memorial of Christ's sacrifice, proclaiming His death until He comes." }
+            ]).map(b => (
+              <div key={b.title} className="belief-card">
+                <h3>{b.title}</h3>
+                <p>{b.text}</p>
               </div>
             ))}
           </div>
@@ -1483,7 +1697,7 @@ function AboutPage({ setPage }) {
             <p className="section-sub">Ministries designed to help every member grow in faith and serve one another.</p>
           </div>
           <div className="cards-grid">
-            {MINISTRIES.map(m => (
+            {(ministries || MINISTRIES).map(m => (
               <div key={m.title} className="card">
                 <div className="card-icon">{m.icon}</div>
                 <div className="card-category">Ministry</div>
@@ -1496,49 +1710,57 @@ function AboutPage({ setPage }) {
         </div>
       </div>
 
-      <div className="section">
-        <div className="section-inner">
-          <div className="section-header">
-            <div className="section-badge">Church Leadership</div>
-            <div className="section-title">Our Staff</div>
-          </div>
-          <div className="staff-grid">
-            {[
-              ["✝️", "Pastor Jayson Jay Magbojos", "Senior Pastor"],
-              ["📖", "Lorence Almadrigo", "Young Professional President"],
-              ["🎵", "John Paul Llona", "Song Leader"],
-              ["🙏", "Mr. & Mrs. Llona", "Kitchen Ministry Heads"],
-            ].map(([emoji, name, role]) => (
-              <div key={name} className="staff-card">
-                <div className="staff-avatar">{emoji}</div>
-                <div className="staff-name">{name}</div>
-                <div className="staff-role">{role}</div>
-              </div>
-            ))}
+      {/* Church Leadership Section */}
+      {(about.staffItems !== undefined ? about.staffItems : [
+        { emoji: "✝️", name: "Pastor Jayson Jay Magbojos", role: "Senior Pastor" },
+        { emoji: "📖", name: "Lorence Almadrigo", role: "Young Professional President" },
+        { emoji: "🎵", name: "John Paul Llona", role: "Song Leader" },
+        { emoji: "🙏", name: "Mr. & Mrs. Llona", role: "Kitchen Ministry Heads" }
+      ]).length > 0 && (
+        <div className="section">
+          <div className="section-inner">
+            <div className="section-header">
+              <div className="section-badge">Church Leadership</div>
+              <div className="section-title">{about.staffTitle || "Our Staff"}</div>
+            </div>
+            <div className="staff-grid">
+              {(about.staffItems !== undefined ? about.staffItems : [
+                { emoji: "✝️", name: "Pastor Jayson Jay Magbojos", role: "Senior Pastor" },
+                { emoji: "📖", name: "Lorence Almadrigo", role: "Young Professional President" },
+                { emoji: "🎵", name: "John Paul Llona", role: "Song Leader" },
+                { emoji: "🙏", name: "Mr. & Mrs. Llona", role: "Kitchen Ministry Heads" }
+              ]).map(s => (
+                <div key={s.name} className="staff-card">
+                  <div className="staff-avatar">{s.emoji || "👤"}</div>
+                  <div className="staff-name">{s.name}</div>
+                  <div className="staff-role">{s.role}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="section section-alt">
         <div className="section-inner">
           <div className="section-header">
             <div className="section-badge">Church Information</div>
-            <div className="section-title">General Information</div>
+            <div className="section-title">{about.infoTitle || "General Information"}</div>
           </div>
           <div className="info-table" style={{ maxWidth: "620px", margin: "0 auto" }}>
-            {[
-              ["Denomination", "Southern Baptist"],
-              ["Location", "Navarro, General Trias, Cavite"],
-              ["Address", "Navarro, General Trias, Cavite 4107"],
-              ["Sunday Worship", "9:00 AM & 12:00 PM"],
-              ["Youth Service", "Sunday 1:00 PM"],
-              ["Wednesday Bible Study", "7:30 PM"],
-              ["Contact", "faithwaybaptistnavarro@gmail.com"],
-              ["Phone", "+63 (963) 776-4918"],
-            ].map(([k, v]) => (
-              <div key={k} className="info-row">
-                <div className="info-key">{k}</div>
-                <div className="info-val">{v}</div>
+            {(about.infoItems || [
+              { key: "Denomination", val: "Southern Baptist" },
+              { key: "Location", val: "Navarro, General Trias, Cavite" },
+              { key: "Address", val: "Navarro, General Trias, Cavite 4107" },
+              { key: "Sunday Worship", val: "9:00 AM & 12:00 PM" },
+              { key: "Youth Service", val: "Sunday 1:00 PM" },
+              { key: "Wednesday Bible Study", val: "7:30 PM" },
+              { key: "Contact", val: "faithwaybaptistnavarro@gmail.com" },
+              { key: "Phone", val: "+63 (963) 776-4918" }
+            ]).map(item => (
+              <div key={item.key} className="info-row">
+                <div className="info-key">{item.key}</div>
+                <div className="info-val">{item.val}</div>
               </div>
             ))}
           </div>
@@ -1549,7 +1771,13 @@ function AboutPage({ setPage }) {
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="footer-logo-wrap">
-              <div className="footer-logo-icon">✝️</div>
+              <div className="footer-logo-icon" style={brandSettings?.logoType === "image" ? { background: "transparent", border: "none", boxShadow: "none", width: "48px", height: "48px" } : {}}>
+                {brandSettings?.logoType === "image" && brandSettings?.logoImage ? (
+                  <img src={brandSettings.logoImage} alt="Logo" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+                ) : (
+                  brandSettings?.logoEmoji || "✝️"
+                )}
+              </div>
               <div>
                 <div className="footer-logo-name">Faithway Baptist Church</div>
                 <div className="footer-logo-sub">Navarro, General Trias, Cavite</div>
@@ -1569,7 +1797,7 @@ function AboutPage({ setPage }) {
           <div className="footer-col">
             <h4>Ministries</h4>
             <ul className="footer-links">
-              {MINISTRIES.map(min => (
+              {(ministries || MINISTRIES).map(min => (
                 <li key={min.title}>{min.title}</li>
               ))}
             </ul>
@@ -1593,19 +1821,150 @@ function AboutPage({ setPage }) {
   );
 }
 
+// ─── ACTIVITY SLIDESHOW ───────────────────────────────────────────────────────
+function ActivitySlideshow({ images }) {
+  const [current, setCurrent] = useState(0);
+  if (!images || images.length === 0) return null;
+
+  const next = (e) => {
+    e.stopPropagation();
+    setCurrent((c) => (c + 1) % images.length);
+  };
+  const prev = (e) => {
+    e.stopPropagation();
+    setCurrent((c) => (c - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className="activity-slideshow" style={{ position: "relative", width: "100%", height: "380px", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+      {images.map((img, i) => (
+        <div
+          key={i}
+          className="activity-slide"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: `url(${img})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: i === current ? 1 : 0,
+            transition: "opacity 0.6s ease-in-out",
+            zIndex: i === current ? 1 : 0
+          }}
+        />
+      ))}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            style={{
+              position: "absolute",
+              left: "1rem",
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 10,
+              background: "rgba(15,23,41,0.65)",
+              color: "white",
+              border: "none",
+              borderRadius: "50%",
+              width: "36px",
+              height: "36px",
+              cursor: "pointer",
+              fontSize: "1.2rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              transition: "background 0.2s"
+            }}
+          >
+            ‹
+          </button>
+          <button
+            onClick={next}
+            style={{
+              position: "absolute",
+              right: "1rem",
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 10,
+              background: "rgba(15,23,41,0.65)",
+              color: "white",
+              border: "none",
+              borderRadius: "50%",
+              width: "36px",
+              height: "36px",
+              cursor: "pointer",
+              fontSize: "1.2rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: "bold",
+              transition: "background 0.2s"
+            }}
+          >
+            ›
+          </button>
+          <div style={{ position: "absolute", bottom: "1rem", left: "0", right: "0", display: "flex", justifyContent: "center", gap: "0.5rem", zIndex: 10 }}>
+            {images.map((_, i) => (
+              <span
+                key={i}
+                onClick={(e) => { e.stopPropagation(); setCurrent(i); }}
+                style={{
+                  width: i === current ? "20px" : "8px",
+                  height: "8px",
+                  borderRadius: "4px",
+                  background: i === current ? "var(--accent)" : "rgba(255,255,255,0.6)",
+                  cursor: "pointer",
+                  transition: "var(--transition)"
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── ACTIVITIES PAGE ───────────────────────────────────────────────────────────
-function ActivitiesPage({ activities, setPage }) {
+function ActivitiesPage({ activities, setPage, brandSettings, pageContents, birthdays, ministries }) {
   const [filter, setFilter] = useState("all");
   const actList = activities && activities.length > 0 ? activities : DEFAULT_ACTIVITIES;
   const filtered = filter === "all" ? actList : actList.filter(a => a.ministry === filter);
+  const birthdaysList = birthdays || [];
+  const acts = pageContents?.activities || {};
 
   return (
     <div className="page">
       <div className="about-hero">
         <div className="section-badge">Activity Feed</div>
-        <h1>Our Church Activities</h1>
-        <p style={{ marginTop: "1.1rem" }}>See the latest updates, highlights, and testimonies from our recent Sunday School, Services, and events.</p>
+        <h1>{acts.heroTitle || "Our Church Activities"}</h1>
+        <p style={{ marginTop: "1.1rem" }}>{acts.heroSub || "See the latest updates, highlights, and testimonies from our recent Sunday School, Services, and events."}</p>
       </div>
+
+      {/* Birthday Celebrants Section */}
+      {birthdaysList.length > 0 && (
+        <div className="section section-alt" style={{ paddingBottom: "2rem" }}>
+          <div className="section-inner">
+            <div className="section-header" style={{ marginBottom: "2rem" }}>
+              <div className="section-badge">Celebrations</div>
+              <div className="section-title">{acts.birthdaysTitle || "Happy Birthday! 🎉"}</div>
+              <p className="section-sub">{acts.birthdaysSub || "Join us in celebrating our brothers and sisters who have birthdays this month."}</p>
+            </div>
+            <div className="celebrants-grid">
+              {birthdaysList.map(b => (
+                <div key={b.id} className="celebrant-card" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(10px)" }}>
+                  <div className="celebrant-avatar" style={{ backgroundImage: `url(${b.photo || 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=400&q=80'})` }} />
+                  <h3>{b.name}</h3>
+                  <div className="celebrant-date">{b.date}</div>
+                  {b.message && <p className="celebrant-msg">"{b.message}"</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="section">
         <div className="section-inner">
@@ -1635,9 +1994,11 @@ function ActivitiesPage({ activities, setPage }) {
                   </div>
                   <div className="feed-post-body">
                     <p>{act.description}</p>
-                    {act.image && (
-                      <div className="feed-post-img" style={{ backgroundImage: `url(${act.image})` }} />
-                    )}
+                    {act.images && act.images.length > 0 ? (
+                      <ActivitySlideshow images={act.images} />
+                    ) : act.image ? (
+                      <ActivitySlideshow images={[act.image]} />
+                    ) : null}
                   </div>
                 </div>
               ))
@@ -1650,7 +2011,13 @@ function ActivitiesPage({ activities, setPage }) {
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="footer-logo-wrap">
-              <div className="footer-logo-icon">✝️</div>
+              <div className="footer-logo-icon" style={brandSettings?.logoType === "image" ? { background: "transparent", border: "none", boxShadow: "none", width: "48px", height: "48px" } : {}}>
+                {brandSettings?.logoType === "image" && brandSettings?.logoImage ? (
+                  <img src={brandSettings.logoImage} alt="Logo" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+                ) : (
+                  brandSettings?.logoEmoji || "✝️"
+                )}
+              </div>
               <div>
                 <div className="footer-logo-name">Faithway Baptist Church</div>
                 <div className="footer-logo-sub">Navarro, General Trias, Cavite</div>
@@ -1670,7 +2037,7 @@ function ActivitiesPage({ activities, setPage }) {
           <div className="footer-col">
             <h4>Ministries</h4>
             <ul className="footer-links">
-              {MINISTRIES.map(min => (
+              {(ministries || MINISTRIES).map(min => (
                 <li key={min.title}>{min.title}</li>
               ))}
             </ul>
@@ -1695,48 +2062,211 @@ function ActivitiesPage({ activities, setPage }) {
 }
 
 // ─── SHOP PAGE ────────────────────────────────────────────────────────────────
-function ShopPage({ products, setPage }) {
+// ════════════════════ SHOP PAGE ════════════════════════════════════════════
+function ShopPage({ products, setPage, brandSettings, pageContents, cart, setCart, orders, setOrders, showToast, ministries }) {
   const list = products && products.length > 0 ? products : DEFAULT_PRODUCTS;
+  const shop = pageContents?.shop || {};
+  const [showCart, setShowCart] = useState(false);
+  const [checkoutDone, setCheckoutDone] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", delivery: "Pick Up", notes: "" });
+  const [formError, setFormError] = useState("");
+
+  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.id === product.id);
+      if (existing) return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { id: product.id, name: product.name, price: product.price, qty: 1, image: product.image }];
+    });
+    showToast(`${product.name} added to cart!`);
+  };
+
+  const changeQty = (id, delta) => {
+    setCart(prev => {
+      const updated = prev.map(i => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i).filter(i => i.qty > 0);
+      return updated;
+    });
+  };
+
+  const removeItem = (id) => setCart(prev => prev.filter(i => i.id !== id));
+
+  const handleCheckout = () => {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
+      setFormError("Please fill in Name, Email, and Phone before submitting."); return;
+    }
+    if (cart.length === 0) { setFormError("Your cart is empty!"); return; }
+    setFormError("");
+
+    const orderId = "ORD-" + Date.now();
+    const orderDate = new Date().toISOString();
+    const newOrder = {
+      id: orderId, customerName: form.name.trim(), email: form.email.trim(),
+      phone: form.phone.trim(), deliveryOption: form.delivery, notes: form.notes.trim(),
+      items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+      total: cartTotal, date: orderDate, status: "Pending"
+    };
+    setOrders(prev => {
+      const existing = Array.isArray(prev) ? prev : [];
+      return [newOrder, ...existing];
+    });
+
+    const itemLines = cart.map(i => `  - ${i.name} x${i.qty} @ PHP ${i.price.toFixed(2)} = PHP ${(i.price * i.qty).toFixed(2)}`).join("%0A");
+    const subject = encodeURIComponent(`New Order ${orderId} from ${form.name}`);
+    const body = encodeURIComponent(
+      `Hello FBC Navarro Store,\n\nI'd like to place the following order:\n\nOrder ID: ${orderId}\nDate: ${new Date().toLocaleString()}\n\nItems:\n`
+    ) + itemLines + encodeURIComponent(`\n\nOrder Total: PHP ${cartTotal.toFixed(2)}\n\nDelivery Option: ${form.delivery}\nNotes: ${form.notes || "None"}\n\n--- Customer Info ---\nName: ${form.name}\nEmail: ${form.email}\nPhone: ${form.phone}\n\nThank you!`);
+    const mailto = `mailto:${brandSettings?.inquiryEmail || ""}?subject=${subject}&body=${body}`;
+    window.location.href = mailto;
+
+    setCart([]);
+    setCheckoutDone(true);
+    showToast("Order submitted! Your email app has been opened with your invoice.", "success");
+  };
 
   return (
     <div className="page">
       <div className="about-hero">
         <div className="section-badge">Church Store</div>
-        <h1>FBC Navarro Store</h1>
-        <p style={{ marginTop: "1.1rem" }}>Browse our merchandise. All proceeds support our church ministries and outreach activities.</p>
+        <h1>{shop.heroTitle || "FBC Navarro Store"}</h1>
+        <p style={{ marginTop: "1.1rem" }}>{shop.heroSub || "Browse our merchandise. All proceeds support our church ministries and outreach activities."}</p>
       </div>
 
       <div className="section">
         <div className="section-inner">
           <div className="products-grid">
-            {list.map(p => (
-              <div key={p.id} className="product-card">
-                <div className="product-image" style={{ backgroundImage: `url(${p.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&q=80'})` }}>
-                  {p.available ? (
-                    <span className="product-badge in">Available</span>
-                  ) : (
-                    <span className="product-badge out">Out of stock</span>
-                  )}
-                </div>
-                <div className="product-info">
-                  <h3>{p.name}</h3>
-                  <p className="product-desc">{p.description}</p>
-                  <div className="product-footer">
-                    <span className="product-price">{fmtCurrency(p.price)}</span>
-                    <a href="https://m.me/FBCNavarro" target="_blank" rel="noopener noreferrer" className="btn btn-accent btn-sm">Order via Messenger</a>
+            {list.map(p => {
+              const cartItem = cart.find(i => i.id === p.id);
+              return (
+                <div key={p.id} className="product-card">
+                  <div className="product-image" style={{ backgroundImage: `url(${p.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500&q=80'})` }}>
+                    {p.available ? <span className="product-badge in">Available</span> : <span className="product-badge out">Out of stock</span>}
+                  </div>
+                  <div className="product-info">
+                    <h3>{p.name}</h3>
+                    <p className="product-desc">{p.description}</p>
+                    <div className="product-footer">
+                      <span className="product-price">{fmtCurrency(p.price)}</span>
+                      {p.available ? (
+                        cartItem ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <button onClick={() => changeQty(p.id, -1)} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "2px solid var(--primary)", background: "transparent", color: "var(--primary)", fontSize: "1.2rem", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                            <span style={{ fontWeight: "700", minWidth: "24px", textAlign: "center" }}>{cartItem.qty}</span>
+                            <button onClick={() => changeQty(p.id, 1)} style={{ width: "32px", height: "32px", borderRadius: "50%", border: "none", background: "var(--primary)", color: "white", fontSize: "1.2rem", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                          </div>
+                        ) : (
+                          <button className="btn btn-accent btn-sm" onClick={() => addToCart(p)}>🛒 Add to Cart</button>
+                        )
+                      ) : (
+                        <span style={{ fontSize: "0.85rem", color: "var(--gray-500)" }}>Unavailable</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
+
+      {/* Floating Cart Button */}
+      {cartCount > 0 && (
+        <button onClick={() => { setShowCart(true); setCheckoutDone(false); }} style={{
+          position: "fixed", bottom: "2rem", right: "2rem", zIndex: 999,
+          background: "linear-gradient(135deg, var(--primary), var(--accent))",
+          color: "white", border: "none", borderRadius: "3rem",
+          padding: "0.85rem 1.5rem", fontSize: "1rem", fontWeight: "700",
+          cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+          display: "flex", alignItems: "center", gap: "0.6rem",
+          transition: "transform 0.2s"
+        }}>
+          🛒 Cart <span style={{ background: "white", color: "var(--primary)", borderRadius: "999px", minWidth: "24px", height: "24px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: "800", padding: "0 6px" }}>{cartCount}</span>
+        </button>
+      )}
+
+      {/* Cart / Checkout Modal */}
+      {showCart && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }} onClick={e => { if (e.target === e.currentTarget) setShowCart(false); }}>
+          <div style={{ background: "white", borderRadius: "1.5rem", padding: "2rem", maxWidth: "580px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h2 style={{ margin: 0, fontSize: "1.4rem" }}>🛒 Your Cart</h2>
+              <button onClick={() => setShowCart(false)} style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "var(--gray-500)" }}>✕</button>
+            </div>
+
+            {checkoutDone ? (
+              <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>✅</div>
+                <h3 style={{ color: "var(--primary)" }}>Order Submitted!</h3>
+                <p style={{ color: "var(--gray-600)", marginTop: "0.5rem" }}>Your order has been logged and your email app was opened with the invoice. We'll get back to you soon!</p>
+                <button className="btn" style={{ marginTop: "1.5rem" }} onClick={() => setShowCart(false)}>Close</button>
+              </div>
+            ) : (
+              <>
+                {/* Cart Items */}
+                {cart.length === 0 ? (
+                  <p style={{ color: "var(--gray-500)", textAlign: "center", padding: "2rem 0" }}>Your cart is empty.</p>
+                ) : (
+                  <div style={{ marginBottom: "1.5rem" }}>
+                    {cart.map(item => (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "0.75rem 0", borderBottom: "1px solid var(--gray-100)" }}>
+                        {item.image && <img src={item.image} alt={item.name} style={{ width: "50px", height: "50px", objectFit: "cover", borderRadius: "0.5rem" }} />}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: "600" }}>{item.name}</div>
+                          <div style={{ fontSize: "0.85rem", color: "var(--gray-500)" }}>{fmtCurrency(item.price)} each</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <button onClick={() => changeQty(item.id, -1)} style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid var(--gray-300)", background: "transparent", cursor: "pointer", fontWeight: "bold", fontSize: "1rem" }}>−</button>
+                          <span style={{ fontWeight: "700", minWidth: "20px", textAlign: "center" }}>{item.qty}</span>
+                          <button onClick={() => changeQty(item.id, 1)} style={{ width: "28px", height: "28px", borderRadius: "50%", border: "none", background: "var(--primary)", color: "white", cursor: "pointer", fontWeight: "bold", fontSize: "1rem" }}>+</button>
+                        </div>
+                        <div style={{ fontWeight: "700", minWidth: "80px", textAlign: "right" }}>{fmtCurrency(item.price * item.qty)}</div>
+                        <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: "var(--gray-400)", cursor: "pointer", fontSize: "1rem" }}>🗑️</button>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "1.1rem", padding: "1rem 0 0", borderTop: "2px solid var(--gray-200)", marginTop: "0.5rem" }}>
+                      <span>Total</span><span style={{ color: "var(--primary)" }}>{fmtCurrency(cartTotal)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Customer Details Form */}
+                <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "1rem", color: "var(--gray-700)" }}>📋 Your Details</h3>
+                <div style={{ display: "grid", gap: "0.75rem" }}>
+                  <input className="form-input" placeholder="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                  <input className="form-input" type="email" placeholder="Email Address *" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  <input className="form-input" placeholder="Phone Number *" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                  <select className="form-input" value={form.delivery} onChange={e => setForm(f => ({ ...f, delivery: e.target.value }))}>
+                    <option>Pick Up</option>
+                    <option>Delivery</option>
+                  </select>
+                  <textarea className="form-input" placeholder="Additional notes (optional)" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: "vertical" }} />
+                </div>
+
+                {formError && <p style={{ color: "var(--error, #e53e3e)", fontSize: "0.85rem", marginTop: "0.75rem" }}>{formError}</p>}
+
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowCart(false)}>Cancel</button>
+                  <button className="btn" style={{ flex: 2, background: "linear-gradient(135deg, var(--primary), var(--accent))" }} onClick={handleCheckout} disabled={cart.length === 0}>
+                    ✉️ Submit & Send Invoice
+                  </button>
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--gray-400)", textAlign: "center", marginTop: "0.75rem" }}>Your email app will open with a pre-filled invoice to send to the church.</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="footer-logo-wrap">
-              <div className="footer-logo-icon">✝️</div>
+              <div className="footer-logo-icon" style={brandSettings?.logoType === "image" ? { background: "transparent", border: "none", boxShadow: "none", width: "48px", height: "48px" } : {}}>
+                {brandSettings?.logoType === "image" && brandSettings?.logoImage ? (
+                  <img src={brandSettings.logoImage} alt="Logo" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+                ) : (brandSettings?.logoEmoji || "⛪")}
+              </div>
               <div>
                 <div className="footer-logo-name">Faithway Baptist Church</div>
                 <div className="footer-logo-sub">Navarro, General Trias, Cavite</div>
@@ -1756,16 +2286,14 @@ function ShopPage({ products, setPage }) {
           <div className="footer-col">
             <h4>Ministries</h4>
             <ul className="footer-links">
-              {MINISTRIES.map(min => (
-                <li key={min.title}>{min.title}</li>
-              ))}
+              {(ministries || MINISTRIES).map(min => (<li key={min.title}>{min.title}</li>))}
             </ul>
           </div>
           <div className="footer-col">
             <h4>Services</h4>
             <ul className="footer-links">
-              <li>☀️ Sunday 9:00 AM</li>
-              <li>☀️ Sunday 12:00 PM</li>
+              <li>🕊️ Sunday 9:00 AM</li>
+              <li>🕊️ Sunday 12:00 PM</li>
               <li>🙏 Sunday Youth 1PM</li>
               <li>📖 Wed Prayer 7:30 PM</li>
             </ul>
@@ -1780,43 +2308,266 @@ function ShopPage({ products, setPage }) {
   );
 }
 
+// ════════════════════ ORDERS PANEL (ADMIN) ══════════════════════════════════
+function OrdersPanel({ orders, setOrders, showToast, inquiryEmail }) {
+  const [filter, setFilter] = useState("All");
+  const statuses = ["All", "Pending", "Processing", "Shipped", "Cancelled"];
+  const statusColors = { Pending: "#f6ad55", Processing: "#63b3ed", Shipped: "#68d391", Cancelled: "#fc8181" };
+
+  const list = Array.isArray(orders) ? orders : [];
+  const filtered = filter === "All" ? list : list.filter(o => o.status === filter);
+
+  const updateStatus = (orderId, newStatus) => {
+    setOrders(prev => {
+      const arr = Array.isArray(prev) ? prev : [];
+      return arr.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+    });
+    showToast(`Order status updated to ${newStatus}`, "success");
+  };
+
+  const emailCustomer = (order) => {
+    const subject = encodeURIComponent(`Update on your Order ${order.id} — ${order.status}`);
+    const body = encodeURIComponent(
+      `Dear ${order.customerName},\n\nThank you for your order at FBC Navarro Store!\n\nOrder ID: ${order.id}\nStatus: ${order.status}\n\nItems:\n${(order.items || []).map(i => `  - ${i.name} x${i.qty} @ PHP ${Number(i.price).toFixed(2)}`).join("\n")}\n\nTotal: PHP ${Number(order.total).toFixed(2)}\nDelivery: ${order.deliveryOption}\n\n${order.status === "Shipped" ? "Your order is on its way!" : order.status === "Processing" ? "We are currently processing your order." : order.status === "Cancelled" ? "Unfortunately your order has been cancelled. Please contact us for assistance." : "We have received your order and will be processing it soon."}\n\nGod bless,\nFBC Navarro Store`
+    );
+    window.open(`mailto:${order.email}?subject=${subject}&body=${body}`);
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "0.25rem" }}>🛒 Store Orders</h2>
+        <p style={{ color: "var(--gray-500)", fontSize: "0.9rem" }}>Manage customer orders, update fulfillment status, and communicate via email.</p>
+      </div>
+
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
+        {statuses.map(s => (
+          <button key={s} onClick={() => setFilter(s)} style={{
+            padding: "0.4rem 1rem", borderRadius: "999px", border: "2px solid",
+            borderColor: filter === s ? "var(--primary)" : "var(--gray-200)",
+            background: filter === s ? "var(--primary)" : "white",
+            color: filter === s ? "white" : "var(--gray-600)",
+            fontWeight: "600", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s"
+          }}>{s} {s === "All" ? `(${list.length})` : `(${list.filter(o => o.status === s).length})`}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "4rem 2rem", color: "var(--gray-400)" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📭</div>
+          <p style={{ fontSize: "1.1rem" }}>No {filter === "All" ? "" : filter.toLowerCase() + " "}orders yet.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {filtered.map(order => (
+            <div key={order.id} className="card" style={{ padding: "1.5rem", borderLeft: `4px solid ${statusColors[order.status] || "#cbd5e0"}` }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: "700", fontSize: "1rem" }}>{order.id}</span>
+                    <span style={{ padding: "0.2rem 0.75rem", borderRadius: "999px", fontSize: "0.78rem", fontWeight: "700", background: statusColors[order.status] || "#e2e8f0", color: "#1a202c" }}>{order.status}</span>
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--gray-500)", marginTop: "0.25rem" }}>{new Date(order.date).toLocaleString()}</div>
+                </div>
+                <div style={{ fontWeight: "800", fontSize: "1.2rem", color: "var(--primary)" }}>PHP {Number(order.total).toFixed(2)}</div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Customer</div>
+                  <div style={{ fontWeight: "600" }}>{order.customerName}</div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--gray-500)" }}>{order.email}</div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--gray-500)" }}>{order.phone}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Delivery</div>
+                  <div style={{ fontWeight: "600" }}>{order.deliveryOption}</div>
+                  {order.notes && <div style={{ fontSize: "0.85rem", color: "var(--gray-500)", marginTop: "0.25rem" }}>Note: {order.notes}</div>}
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--gray-400)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Items</div>
+                  {(order.items || []).map((item, idx) => (
+                    <div key={idx} style={{ fontSize: "0.85rem", color: "var(--gray-600)" }}>{item.name} × {item.qty} — PHP {Number(item.price * item.qty).toFixed(2)}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+                <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--gray-500)" }}>Update Status:</span>
+                {["Pending", "Processing", "Shipped", "Cancelled"].map(s => (
+                  <button key={s} onClick={() => updateStatus(order.id, s)} style={{
+                    padding: "0.3rem 0.8rem", borderRadius: "999px", border: "1.5px solid",
+                    borderColor: order.status === s ? "var(--primary)" : "var(--gray-200)",
+                    background: order.status === s ? "var(--primary)" : "transparent",
+                    color: order.status === s ? "white" : "var(--gray-600)",
+                    fontWeight: "600", fontSize: "0.8rem", cursor: "pointer", transition: "all 0.2s"
+                  }}>{s}</button>
+                ))}
+                <button onClick={() => emailCustomer(order)} style={{
+                  marginLeft: "auto", padding: "0.4rem 1rem", borderRadius: "999px",
+                  border: "none", background: "linear-gradient(135deg, var(--primary), var(--accent))",
+                  color: "white", fontWeight: "700", fontSize: "0.85rem", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: "0.4rem"
+                }}>✉️ Email Customer</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ADMIN LOGIN PAGE ──────────────────────────────────────────────────────────
-function AdminLoginPage({ onLogin }) {
+function AdminLoginPage({ onLogin, adminCredentials, setAdminCredentials, showToast }) {
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
 
+  // Forgot mode recovery states
+  const [forgotMode, setForgotMode] = useState(false);
+  const [securityAnswerInput, setSecurityAnswerInput] = useState("");
+  const [isAnswerVerified, setIsAnswerVerified] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (user === "admin" && pass === "fbcnavarro2024") {
+    const correctUser = deobfuscate(adminCredentials?.username) || "admin";
+    const correctPass = deobfuscate(adminCredentials?.password) || "fbcnavarro2024";
+
+    if (user.trim() === correctUser && pass.trim() === correctPass) {
       onLogin();
     } else {
       setError("Invalid username or password.");
     }
   };
 
+  const handleVerifyAnswer = (e) => {
+    e.preventDefault();
+    const correctAnswer = deobfuscate(adminCredentials?.securityAnswer) || "Navarro";
+    if (securityAnswerInput.trim().toLowerCase() === correctAnswer.toLowerCase()) {
+      setIsAnswerVerified(true);
+      setRecoveryError("");
+    } else {
+      setRecoveryError("Incorrect answer to the security question. Please try again.");
+    }
+  };
+
+  const handleResetCredentials = (e) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newPassword.trim()) {
+      setRecoveryError("Both username and password are required.");
+      return;
+    }
+    
+    // Save to Firestore and localStorage
+    setAdminCredentials({
+      ...adminCredentials,
+      username: obfuscate(newUsername.trim()),
+      password: obfuscate(newPassword.trim())
+    });
+
+    if (showToast) showToast("Credentials successfully updated! Logging you in...", "success");
+    
+    // Clean up
+    setForgotMode(false);
+    setIsAnswerVerified(false);
+    setSecurityAnswerInput("");
+    setNewUsername("");
+    setNewPassword("");
+    
+    onLogin();
+  };
+
+  const handleBackToLogin = () => {
+    setForgotMode(false);
+    setIsAnswerVerified(false);
+    setSecurityAnswerInput("");
+    setNewUsername("");
+    setNewPassword("");
+    setRecoveryError("");
+    setError("");
+  };
+
   return (
     <div className="page" style={{ background: "var(--gray-50)" }}>
       <div className="login-overlay">
-        <form className="login-card" onSubmit={handleSubmit}>
-          <div className="login-icon">🔒</div>
-          <h2>Admin Login</h2>
-          <p>Sign in to manage the church website and database.</p>
-          {error && <div className="tag expense" style={{ width: "100%", padding: "0.75rem", marginBottom: "1rem", borderRadius: "8px", fontWeight: "600" }}>{error}</div>}
-          <div className="form-group" style={{ textAlign: "left" }}>
-            <label className="form-label">Username</label>
-            <input className="form-input" value={user} onChange={e => setUser(e.target.value)} placeholder="Enter username" required />
-          </div>
-          <div className="form-group" style={{ textAlign: "left", position: "relative" }}>
-            <label className="form-label">Password</label>
-            <input className="form-input" type={showPass ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)} placeholder="Enter password" required />
-            <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: "12px", bottom: "10px", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", color: "var(--gray-400)" }}>
-              {showPass ? "🙈" : "👁️"}
+        {!forgotMode ? (
+          <form className="login-card" onSubmit={handleSubmit}>
+            <div className="login-icon">🔒</div>
+            <h2>Admin Login</h2>
+            <p>Sign in to manage the church website and database.</p>
+            {error && <div className="tag expense" style={{ width: "100%", padding: "0.75rem", marginBottom: "1rem", borderRadius: "8px", fontWeight: "600" }}>{error}</div>}
+            <div className="form-group" style={{ textAlign: "left" }}>
+              <label className="form-label">Username</label>
+              <input className="form-input" value={user} onChange={e => setUser(e.target.value)} placeholder="Enter username" required />
+            </div>
+            <div className="form-group" style={{ textAlign: "left", position: "relative" }}>
+              <label className="form-label">Password</label>
+              <input className="form-input" type={showPass ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)} placeholder="Enter password" required />
+              <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: "12px", bottom: "10px", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", color: "var(--gray-400)" }}>
+                {showPass ? "🙈" : "👁️"}
+              </button>
+            </div>
+            <button type="submit" className="btn btn-full btn-accent" style={{ marginTop: "1rem" }}>Login</button>
+            <div style={{ marginTop: "1.25rem", fontSize: "0.85rem" }}>
+              <button type="button" onClick={() => setForgotMode(true)} style={{ background: "none", border: "none", color: "var(--primary-light)", cursor: "pointer", fontWeight: "600", textDecoration: "underline" }}>
+                Forgot Username or Password?
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="login-card">
+            <div className="login-icon">🔑</div>
+            <h2>Credentials Recovery</h2>
+            <p style={{ marginBottom: "1rem" }}>Answer the security question set by the administrator to reset your credentials.</p>
+            
+            {recoveryError && <div className="tag expense" style={{ width: "100%", padding: "0.75rem", marginBottom: "1rem", borderRadius: "8px", fontWeight: "600" }}>{recoveryError}</div>}
+
+            {!isAnswerVerified ? (
+              <form onSubmit={handleVerifyAnswer}>
+                <div className="form-group" style={{ textAlign: "left" }}>
+                  <label className="form-label" style={{ fontWeight: "600", color: "var(--gray-800)", display: "block", marginBottom: "0.5rem" }}>
+                    Security Question:
+                  </label>
+                  <p style={{ padding: "0.75rem", background: "var(--gray-100)", borderRadius: "var(--radius-sm)", fontSize: "0.9rem", color: "var(--gray-700)", border: "1px solid var(--gray-200)", marginBottom: "1rem", fontWeight: "600" }}>
+                    {adminCredentials?.securityQuestion || "What is the name of the church branch location?"}
+                  </p>
+                  <label className="form-label">Your Answer</label>
+                  <input className="form-input" value={securityAnswerInput} onChange={e => setSecurityAnswerInput(e.target.value)} placeholder="Type security answer" required />
+                </div>
+                <button type="submit" className="btn btn-full btn-accent" style={{ marginTop: "1rem" }}>Verify Answer</button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetCredentials}>
+                <div className="tag success" style={{ width: "100%", padding: "0.75rem", marginBottom: "1.25rem", borderRadius: "8px", fontWeight: "600" }}>
+                  ✓ Security Answer Verified!
+                </div>
+                <div className="form-group" style={{ textAlign: "left" }}>
+                  <label className="form-label">New Username</label>
+                  <input className="form-input" value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Enter new username" required />
+                </div>
+                <div className="form-group" style={{ textAlign: "left", position: "relative" }}>
+                  <label className="form-label">New Password</label>
+                  <input className="form-input" type={showNewPass ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Enter new password" required />
+                  <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: "absolute", right: "12px", bottom: "10px", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", color: "var(--gray-400)" }}>
+                    {showNewPass ? "🙈" : "👁️"}
+                  </button>
+                </div>
+                <button type="submit" className="btn btn-full btn-success" style={{ marginTop: "1rem" }}>Reset & Log In</button>
+              </form>
+            )}
+            
+            <button type="button" className="btn btn-full btn-outline" onClick={handleBackToLogin} style={{ marginTop: "0.75rem" }}>
+              Back to Login
             </button>
           </div>
-          <button type="submit" className="btn btn-full btn-accent" style={{ marginTop: "1rem" }}>Login</button>
-        </form>
+        )}
       </div>
     </div>
   );
@@ -1836,8 +2587,41 @@ function DashboardPanel({
   mission, setMission,
   stats, setStats,
   setTab, 
-  showToast 
+  showToast,
+  adminCredentials,
+  setAdminCredentials
 }) {
+  const [showCredsEditor, setShowCredsEditor] = useState(false);
+  const [formU, setFormU] = useState("");
+  const [formP, setFormP] = useState("");
+  const [formQ, setFormQ] = useState("");
+  const [formA, setFormA] = useState("");
+  const [showFormP, setShowFormP] = useState(false);
+
+  const startEditCreds = () => {
+    setFormU(deobfuscate(adminCredentials?.username) || "admin");
+    setFormP(deobfuscate(adminCredentials?.password) || "fbcnavarro2024");
+    setFormQ(adminCredentials?.securityQuestion || "What is the name of the church branch location?");
+    setFormA(deobfuscate(adminCredentials?.securityAnswer) || "Navarro");
+    setShowCredsEditor(true);
+  };
+
+  const handleSaveCreds = (e) => {
+    e.preventDefault();
+    if (!formU.trim() || !formP.trim() || !formQ.trim() || !formA.trim()) {
+      showToast("All security credential fields are required.", "error");
+      return;
+    }
+    setAdminCredentials({
+      username: obfuscate(formU.trim()),
+      password: obfuscate(formP.trim()),
+      securityQuestion: formQ.trim(),
+      securityAnswer: obfuscate(formA.trim())
+    });
+    showToast("Admin credentials updated and encrypted in Firestore!", "success");
+    setShowCredsEditor(false);
+  };
+
   const total = records.reduce((s, r) => r.type === "income" ? s + Number(r.amount) : s - Number(r.amount), 0);
   
   // Calculate next event countdown
@@ -1972,8 +2756,9 @@ function DashboardPanel({
           <h3>Database Backup & Utilities</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem", color: "var(--gray-600)" }}>
-              <div>🔧 Username: <strong>admin</strong> | 🔑 Pass: <strong>fbcnavarro2024</strong></div>
-              <div>📂 Database Storage: <strong>Browser LocalStorage</strong></div>
+              <div>🔧 Username: <strong style={{ fontFamily: "monospace" }}>{deobfuscate(adminCredentials?.username) || "admin"}</strong></div>
+              <div>🔑 Password: <strong style={{ fontFamily: "monospace" }}>•••••••• (Obfuscated in Cloud)</strong></div>
+              <div>📂 Database Storage: <strong>Google Firebase Firestore</strong></div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
               <button className="btn btn-outline btn-sm" onClick={exportBackup} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.25rem" }}>📤 Export Backup</button>
@@ -1982,8 +2767,48 @@ function DashboardPanel({
                 <input type="file" accept=".json" onChange={importBackup} style={{ display: "none" }} />
               </label>
             </div>
+            <button className="btn btn-outline btn-sm" onClick={startEditCreds} style={{ width: "100%" }}>✏️ Update Login & Recovery Question</button>
             <button className="btn btn-danger btn-sm" onClick={resetToDefaults} style={{ width: "100%" }}>⚠️ Reset All to System Defaults</button>
           </div>
+
+          {showCredsEditor && (
+            <div className="modal-overlay" style={{ zIndex: 1000 }}>
+              <form className="modal-card" onSubmit={handleSaveCreds} style={{ maxWidth: "450px" }}>
+                <div className="modal-header">
+                  <h3>Update Security Credentials</h3>
+                  <button type="button" className="modal-close" onClick={() => setShowCredsEditor(false)}>×</button>
+                </div>
+                <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem", textAlign: "left" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--gray-500)" }}>
+                    Configure the administrator login credentials. Values are obfuscated before storage in the live cloud database.
+                  </p>
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input className="form-input" value={formU} onChange={e => setFormU(e.target.value)} required />
+                  </div>
+                  <div className="form-group" style={{ position: "relative" }}>
+                    <label className="form-label">Password</label>
+                    <input className="form-input" type={showFormP ? "text" : "password"} value={formP} onChange={e => setFormP(e.target.value)} required />
+                    <button type="button" onClick={() => setShowFormP(!showFormP)} style={{ position: "absolute", right: "12px", bottom: "10px", background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem", color: "var(--gray-400)" }}>
+                      {showFormP ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                  <div className="form-group" style={{ borderTop: "1px solid var(--gray-200)", paddingTop: "0.75rem", marginTop: "0.5rem" }}>
+                    <label className="form-label">Self-Recovery Security Question</label>
+                    <input className="form-input" value={formQ} onChange={e => setFormQ(e.target.value)} placeholder="e.g. What is the name of the church branch location?" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Security Answer</label>
+                    <input className="form-input" value={formA} onChange={e => setFormA(e.target.value)} placeholder="Type the answer" required />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-outline" onClick={() => setShowCredsEditor(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-accent">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1991,7 +2816,7 @@ function DashboardPanel({
 }
 
 // ─── SAVINGS & FINANCE PANEL ───
-function SavingsPanel({ records, setRecords, showToast }) {
+function SavingsPanel({ records, setRecords, showToast, onLock }) {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ type: "income", amount: "", description: "", category: "", date: "" });
@@ -2158,6 +2983,15 @@ function SavingsPanel({ records, setRecords, showToast }) {
       <div className="admin-header">
         <h2>Church Savings & Finance</h2>
         <div className="admin-actions">
+          {onLock && (
+            <button 
+              className="btn btn-outline" 
+              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', borderColor: 'var(--red-500)', color: 'var(--red-500)' }} 
+              onClick={onLock}
+            >
+              🔒 Lock Panel
+            </button>
+          )}
           <button className="btn btn-outline" onClick={handleExportExcel}>📊 Export to Excel</button>
           <button className="btn" onClick={() => setModal(true)}>+ Add Record</button>
         </div>
@@ -2324,17 +3158,36 @@ function SavingsPanel({ records, setRecords, showToast }) {
 }
 
 // ─── SITE CONTENT PANEL ───
-function SiteContentPanel({ slides, setSlides, mission, setMission, stats, setStats }) {
+function SiteContentPanel({ slides, setSlides, mission, setMission, stats, setStats, pageContents, setPageContents, showToast }) {
+  const [activeSubTab, setActiveSubTab] = useState("sections"); // "sections" | "home_page" | "about_page" | "other_pages"
+  
   const [slideList, setSlideList] = useState(slides && slides.length > 0 ? slides : DEFAULT_SLIDES);
   const [missObj, setMissObj] = useState(mission || DEFAULT_MISSION);
   const [stObj, setStObj] = useState(stats || DEFAULT_STATS);
+  
+  // Page Contents Local States
+  const [homeForm, setHomeForm] = useState(pageContents?.home || DEFAULT_PAGE_CONTENTS.home);
+  const [aboutForm, setAboutForm] = useState(pageContents?.about || DEFAULT_PAGE_CONTENTS.about);
+  const [activitiesForm, setActivitiesForm] = useState(pageContents?.activities || DEFAULT_PAGE_CONTENTS.activities);
+  const [shopForm, setShopForm] = useState(pageContents?.shop || DEFAULT_PAGE_CONTENTS.shop);
+
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSave = () => {
     setSlides(slideList);
     setMission(missObj);
     setStats(stObj);
+    
+    // Save page contents
+    setPageContents({
+      home: homeForm,
+      about: aboutForm,
+      activities: activitiesForm,
+      shop: shopForm
+    });
+    
     setSaveSuccess(true);
+    showToast("All site contents and page text customized successfully!");
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
@@ -2344,84 +3197,674 @@ function SiteContentPanel({ slides, setSlides, mission, setMission, stats, setSt
     setSlideList(updated);
   };
 
+  const subTabs = [
+    { id: "sections", label: "Hero & Key Sections" },
+    { id: "home_page", label: "Home Page Text" },
+    { id: "about_page", label: "About Page Text" },
+    { id: "other_pages", label: "Activities & Shop" }
+  ];
+
   return (
     <div>
       <div className="admin-header">
-        <h2>Modify Site Content</h2>
+        <h2>Modify Site Content & Texts</h2>
         <button className="btn" onClick={handleSave}>Save Changes</button>
       </div>
 
       {saveSuccess && <div className="alert-success">✓ Content changes saved successfully and are now live!</div>}
 
-      {/* Stats Section */}
-      <div className="content-edit-section">
-        <h3>Church Statistics Counters</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
-          <div className="form-group">
-            <label className="form-label">Members Counter</label>
-            <input className="form-input" value={stObj.members} onChange={e => setStObj({ ...stObj, members: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Years Ministry</label>
-            <input className="form-input" value={stObj.years} onChange={e => setStObj({ ...stObj, years: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Sunday Services</label>
-            <input className="form-input" value={stObj.services} onChange={e => setStObj({ ...stObj, services: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Active Ministries</label>
-            <input className="form-input" value={stObj.ministries} onChange={e => setStObj({ ...stObj, ministries: e.target.value })} />
-          </div>
-        </div>
+      <div className="feed-filters" style={{ justifyContent: "flex-start", marginBottom: "2rem" }}>
+        {subTabs.map(t => (
+          <button 
+            key={t.id} 
+            className={`filter-btn${activeSubTab === t.id ? " active" : ""}`} 
+            onClick={() => setActiveSubTab(t.id)}
+            style={{ fontSize: "0.8rem", padding: "0.4rem 1rem" }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Slide Edit */}
-      <div className="content-edit-section">
-        <h3>Hero Slide Banners</h3>
-        {slideList.map((s, idx) => (
-          <div key={idx} className="slide-edit-box">
-            <h4>Slide #{idx + 1} Settings</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+      {activeSubTab === "sections" && (
+        <>
+          {/* Stats Section */}
+          <div className="content-edit-section">
+            <h3>Church Statistics Counters</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Slide Image URL</label>
-                <input className="form-input" value={s.bg} onChange={e => handleSlideChange(idx, "bg", e.target.value)} />
+                <label className="form-label">Members Counter</label>
+                <input className="form-input" value={stObj.members} onChange={e => setStObj({ ...stObj, members: e.target.value })} />
               </div>
               <div className="form-group">
-                <label className="form-label">Heading Title</label>
-                <input className="form-input" value={s.title} onChange={e => handleSlideChange(idx, "title", e.target.value)} />
+                <label className="form-label">Years Ministry</label>
+                <input className="form-input" value={stObj.years} onChange={e => setStObj({ ...stObj, years: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Sunday Services</label>
+                <input className="form-input" value={stObj.services} onChange={e => setStObj({ ...stObj, services: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Active Ministries</label>
+                <input className="form-input" value={stObj.ministries} onChange={e => setStObj({ ...stObj, ministries: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          {/* Slide Edit */}
+          <div className="content-edit-section">
+            <h3>Hero Slide Banners</h3>
+            {slideList.map((s, idx) => (
+              <div key={idx} className="slide-edit-box">
+                <h4>Slide #{idx + 1} Settings</h4>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                  <div className="form-group">
+                    <label className="form-label">Slide Image (Upload or URL)</label>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input className="form-input" value={s.bg} onChange={e => handleSlideChange(idx, "bg", e.target.value)} placeholder="Image web URL link..." style={{ flex: 1 }} />
+                      <input 
+                        type="file" 
+                        id={`slide-file-${idx}`} 
+                        accept="image/*" 
+                        style={{ display: "none" }} 
+                        onChange={e => handleLocalImageUpload(e, base64 => {
+                          handleSlideChange(idx, "bg", base64);
+                          showToast(`Slide #${idx + 1} image uploaded successfully!`);
+                        }, showToast)}
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-outline btn-sm" 
+                        onClick={() => document.getElementById(`slide-file-${idx}`).click()}
+                        style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                      >
+                        📂 Upload
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Heading Title</label>
+                    <input className="form-input" value={s.title} onChange={e => handleSlideChange(idx, "title", e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div className="form-group">
+                    <label className="form-label">Title Bold Highlight</label>
+                    <input className="form-input" value={s.titleBold} onChange={e => handleSlideChange(idx, "titleBold", e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Slide Subtext Description</label>
+                    <input className="form-input" value={s.desc} onChange={e => handleSlideChange(idx, "desc", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mission Edit */}
+          <div className="content-edit-section">
+            <h3>Our Mission Section</h3>
+            <div className="form-group">
+              <label className="form-label">Mission Image URL</label>
+              <input className="form-input" value={missObj.image} onChange={e => setMissObj({ ...missObj, image: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mission Section Title</label>
+              <input className="form-input" value={missObj.title} onChange={e => setMissObj({ ...missObj, title: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Description Text</label>
+              <textarea className="form-textarea" rows={4} value={missObj.text} onChange={e => setMissObj({ ...missObj, text: e.target.value })} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeSubTab === "home_page" && (
+        <>
+          <div className="content-edit-section">
+            <h3>Hero Title and Description</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Hero Title Prefix</label>
+                <input className="form-input" value={homeForm.heroTitle} onChange={e => setHomeForm({ ...homeForm, heroTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Hero Title Bold Tagline</label>
+                <input className="form-input" value={homeForm.heroTitleBold} onChange={e => setHomeForm({ ...homeForm, heroTitleBold: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Hero Subtitle</label>
+              <textarea className="form-textarea" rows={2} value={homeForm.heroDesc} onChange={e => setHomeForm({ ...homeForm, heroDesc: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Mission Section Overlay Texts</h3>
+            <div className="form-group">
+              <label className="form-label">Mission Title</label>
+              <input className="form-input" value={homeForm.missionTitle} onChange={e => setHomeForm({ ...homeForm, missionTitle: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mission Paragraph Text</label>
+              <textarea className="form-textarea" rows={3} value={homeForm.missionText} onChange={e => setHomeForm({ ...homeForm, missionText: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Service Schedule Titles</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Weekly Schedule Main Title</label>
+                <input className="form-input" value={homeForm.scheduleTitle} onChange={e => setHomeForm({ ...homeForm, scheduleTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Weekly Schedule Subheading</label>
+                <input className="form-input" value={homeForm.scheduleSub} onChange={e => setHomeForm({ ...homeForm, scheduleSub: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Contact Us Info & Channels</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Contact Block Headline</label>
+                <input className="form-input" value={homeForm.contactTitle} onChange={e => setHomeForm({ ...homeForm, contactTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Block Subheading</label>
+                <input className="form-input" value={homeForm.contactSub} onChange={e => setHomeForm({ ...homeForm, contactSub: e.target.value })} />
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
-                <label className="form-label">Title Bold Highlight</label>
-                <input className="form-input" value={s.titleBold} onChange={e => handleSlideChange(idx, "titleBold", e.target.value)} />
+                <label className="form-label">Address Location</label>
+                <input className="form-input" value={homeForm.contactAddress} onChange={e => setHomeForm({ ...homeForm, contactAddress: e.target.value })} />
               </div>
               <div className="form-group">
-                <label className="form-label">Slide Subtext Description</label>
-                <input className="form-input" value={s.desc} onChange={e => handleSlideChange(idx, "desc", e.target.value)} />
+                <label className="form-label">Sunday Service Hours</label>
+                <input className="form-input" value={homeForm.contactServices} onChange={e => setHomeForm({ ...homeForm, contactServices: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Phone Hotline</label>
+                <input className="form-input" value={homeForm.contactPhone} onChange={e => setHomeForm({ ...homeForm, contactPhone: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Email Address</label>
+                <input className="form-input" value={homeForm.contactEmail} onChange={e => setHomeForm({ ...homeForm, contactEmail: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Facebook Community Name</label>
+                <input className="form-input" value={homeForm.contactFacebook} onChange={e => setHomeForm({ ...homeForm, contactFacebook: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Manage Supported Missionaries</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem" }}>
+              {(homeForm.missionaries || []).map((m, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem", background: "var(--gray-50)", borderRadius: "8px", border: "1px solid var(--gray-200)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ width: "40px", height: "40px", borderRadius: "8px", backgroundImage: `url(${m.photo || 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=100&q=80'})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+                    <div>
+                      <div style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--gray-800)" }}>{m.name}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: "500" }}>{m.field}</div>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger btn-sm" 
+                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
+                    onClick={() => {
+                      const updated = (homeForm.missionaries || []).filter((_, i) => i !== idx);
+                      setHomeForm({ ...homeForm, missionaries: updated });
+                      showToast(`Removed missionary: ${m.name}`);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(homeForm.missionaries || []).length === 0 && (
+                <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--gray-400)", fontSize: "0.9rem" }}>No missionaries defined. Use the form below to add one.</div>
+              )}
+            </div>
+
+            {/* Add New Missionary Form */}
+            <div style={{ padding: "1rem", background: "white", border: "1px dashed var(--gray-300)", borderRadius: "8px" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: "600", marginBottom: "0.75rem", color: "var(--gray-700)" }}>Add New Missionary</div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "0.75rem" }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Full Name *</label>
+                  <input type="text" className="form-input" placeholder="e.g. Bro. Caleb" id="new-missionary-name" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Mission Field/Region *</label>
+                  <input type="text" className="form-input" placeholder="e.g. Mindanao / Japan" id="new-missionary-field" />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "0.75rem" }}>
+                <label className="form-label">Description / Message</label>
+                <textarea className="form-textarea" rows={2} placeholder="e.g. Planting churches in rural communities." id="new-missionary-desc" />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Photo Upload</label>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={e => {
+                      const fileInput = e.target;
+                      handleLocalImageUpload(e, base64 => {
+                        fileInput.dataset.base64 = base64;
+                        const previewImg = document.getElementById("new-missionary-preview");
+                        if (previewImg) {
+                          previewImg.src = base64;
+                          previewImg.style.display = "block";
+                        }
+                        showToast("Missionary photo uploaded!");
+                      }, showToast);
+                    }}
+                    id="new-missionary-file"
+                    style={{ fontSize: "0.8rem", width: "100%" }}
+                  />
+                </div>
+                <img 
+                  id="new-missionary-preview" 
+                  alt="Preview" 
+                  style={{ width: "48px", height: "48px", borderRadius: "8px", objectFit: "cover", display: "none", border: "1px solid var(--gray-200)" }} 
+                />
+              </div>
+
+              <button 
+                type="button" 
+                className="btn btn-sm btn-outline" 
+                onClick={() => {
+                  const nameEl = document.getElementById("new-missionary-name");
+                  const fieldEl = document.getElementById("new-missionary-field");
+                  const descEl = document.getElementById("new-missionary-desc");
+                  const fileEl = document.getElementById("new-missionary-file");
+                  
+                  const name = nameEl?.value.trim();
+                  const field = fieldEl?.value.trim();
+                  const description = descEl?.value.trim() || "";
+                  const photo = fileEl?.dataset?.base64 || "";
+                  
+                  if (!name || !field) {
+                    showToast("Please fill in Name and Mission Field.", "error");
+                    return;
+                  }
+                  
+                  const newItem = { name, field, description, photo };
+                  const updated = [...(homeForm.missionaries || []), newItem];
+                  setHomeForm({ ...homeForm, missionaries: updated });
+                  
+                  if (nameEl) nameEl.value = "";
+                  if (fieldEl) fieldEl.value = "";
+                  if (descEl) descEl.value = "";
+                  if (fileEl) {
+                    fileEl.value = "";
+                    delete fileEl.dataset.base64;
+                  }
+                  const previewImg = document.getElementById("new-missionary-preview");
+                  if (previewImg) {
+                    previewImg.src = "";
+                    previewImg.style.display = "none";
+                  }
+                  
+                  showToast(`Added missionary: ${name}`);
+                }}
+              >
+                + Add Missionary
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeSubTab === "about_page" && (
+        <>
+          <div className="content-edit-section">
+            <h3>About Page Hero & Story</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">About Page Hero Title</label>
+                <input className="form-input" value={aboutForm.heroTitle} onChange={e => setAboutForm({ ...aboutForm, heroTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">About Page Hero Subtext</label>
+                <input className="form-input" value={aboutForm.heroSub} onChange={e => setAboutForm({ ...aboutForm, heroSub: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Story Section Badge</label>
+                <input className="form-input" value={aboutForm.storyBadge} onChange={e => setAboutForm({ ...aboutForm, storyBadge: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Story Section Headline</label>
+                <input className="form-input" value={aboutForm.storyTitle} onChange={e => setAboutForm({ ...aboutForm, storyTitle: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Story Paragraph #1</label>
+              <textarea className="form-textarea" rows={4} value={aboutForm.storyParagraph1} onChange={e => setAboutForm({ ...aboutForm, storyParagraph1: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Story Paragraph #2</label>
+              <textarea className="form-textarea" rows={4} value={aboutForm.storyParagraph2} onChange={e => setAboutForm({ ...aboutForm, storyParagraph2: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Story Image</label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={e => handleLocalImageUpload(e, base64 => {
+                  setAboutForm({ ...aboutForm, storyImage: base64 });
+                  showToast("Story image uploaded successfully!");
+                }, showToast)}
+                style={{ fontSize: "0.8rem", width: "100%" }}
+              />
+              {aboutForm.storyImage && (
+                <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--gray-500)" }}>Preview:</span>
+                  <img src={aboutForm.storyImage} alt="Story Preview" style={{ width: "120px", height: "70px", objectFit: "cover", borderRadius: "6px", border: "1px solid var(--gray-200)" }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Doctrine and Core Beliefs Headers</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Beliefs Headline</label>
+                <input className="form-input" value={aboutForm.beliefsTitle} onChange={e => setAboutForm({ ...aboutForm, beliefsTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Beliefs Subtitle</label>
+                <input className="form-input" value={aboutForm.beliefsSub} onChange={e => setAboutForm({ ...aboutForm, beliefsSub: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Other Section Headers</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Staff & Leadership Headline</label>
+                <input className="form-input" value={aboutForm.staffTitle} onChange={e => setAboutForm({ ...aboutForm, staffTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">General Info Table Headline</label>
+                <input className="form-input" value={aboutForm.infoTitle} onChange={e => setAboutForm({ ...aboutForm, infoTitle: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Manage Church Staff & Roles</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem" }}>
+              {(aboutForm.staffItems || []).map((staff, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem", background: "var(--gray-50)", borderRadius: "8px", border: "1px solid var(--gray-200)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <span style={{ fontSize: "1.5rem" }}>{staff.emoji || "👤"}</span>
+                    <div>
+                      <div style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--gray-800)" }}>{staff.name}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--gray-500)" }}>{staff.role}</div>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger btn-sm" 
+                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
+                    onClick={() => {
+                      const updated = (aboutForm.staffItems || []).filter((_, i) => i !== idx);
+                      setAboutForm({ ...aboutForm, staffItems: updated });
+                      showToast(`Removed staff member: ${staff.name}`);
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(aboutForm.staffItems || []).length === 0 && (
+                <div style={{ textAlign: "center", padding: "1.5rem", color: "var(--gray-400)", fontSize: "0.9rem" }}>No staff members defined. Use the form below to add one.</div>
+              )}
+            </div>
+
+            {/* Add New Staff Form */}
+            <div style={{ padding: "1rem", background: "white", border: "1px dashed var(--gray-300)", borderRadius: "8px" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: "600", marginBottom: "0.75rem", color: "var(--gray-700)" }}>Add New Staff Member</div>
+              <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--gray-500)", display: "block", marginBottom: "0.25rem" }}>Emoji</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="👨‍💼" 
+                    id="new-staff-emoji"
+                    style={{ textAlign: "center" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--gray-500)", display: "block", marginBottom: "0.25rem" }}>Full Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. John Doe" 
+                    id="new-staff-name"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--gray-500)", display: "block", marginBottom: "0.25rem" }}>Role/Title</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. Youth Leader" 
+                    id="new-staff-role"
+                  />
+                </div>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-sm btn-outline" 
+                onClick={() => {
+                  const emojiEl = document.getElementById("new-staff-emoji");
+                  const nameEl = document.getElementById("new-staff-name");
+                  const roleEl = document.getElementById("new-staff-role");
+                  const emoji = emojiEl?.value.trim() || "👤";
+                  const name = nameEl?.value.trim();
+                  const role = roleEl?.value.trim() || "Staff";
+                  
+                  if (!name) {
+                    showToast("Please enter a name for the staff member.", "error");
+                    return;
+                  }
+                  
+                  const newItem = { emoji, name, role };
+                  const updated = [...(aboutForm.staffItems || []), newItem];
+                  setAboutForm({ ...aboutForm, staffItems: updated });
+                  
+                  if (emojiEl) emojiEl.value = "";
+                  if (nameEl) nameEl.value = "";
+                  if (roleEl) roleEl.value = "";
+                  
+                  showToast(`Added staff member: ${name}`);
+                }}
+              >
+                + Add Member
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeSubTab === "other_pages" && (
+        <>
+          <div className="content-edit-section">
+            <h3>Activities Page Header & Birthdays Headline</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Activities Hero Title</label>
+                <input className="form-input" value={activitiesForm.heroTitle} onChange={e => setActivitiesForm({ ...activitiesForm, heroTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Activities Hero Subtitle</label>
+                <input className="form-input" value={activitiesForm.heroSub} onChange={e => setActivitiesForm({ ...activitiesForm, heroSub: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Birthdays Component Headline</label>
+                <input className="form-input" value={activitiesForm.birthdaysTitle} onChange={e => setActivitiesForm({ ...activitiesForm, birthdaysTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Birthdays Component Subtext</label>
+                <input className="form-input" value={activitiesForm.birthdaysSub} onChange={e => setActivitiesForm({ ...activitiesForm, birthdaysSub: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="content-edit-section">
+            <h3>Shop / Store Page Header</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              <div className="form-group">
+                <label className="form-label">Shop Page Hero Title</label>
+                <input className="form-input" value={shopForm.heroTitle} onChange={e => setShopForm({ ...shopForm, heroTitle: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Shop Page Hero Subtext</label>
+                <input className="form-input" value={shopForm.heroSub} onChange={e => setShopForm({ ...shopForm, heroSub: e.target.value })} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── MINISTRIES PANEL ───
+function MinistriesPanel({ ministries, setMinistries, showToast }) {
+  const [modal, setModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({ icon: "⛪", title: "", desc: "", freq: "" });
+
+  const list = ministries || [];
+
+  const save = () => {
+    if (!form.title || !form.desc || !form.freq) {
+      showToast("Please fill out all fields.", "error");
+      return;
+    }
+    if (editId) {
+      setMinistries(list.map(m => m.id === editId ? { ...m, ...form } : m));
+      showToast("Ministry updated successfully!");
+    } else {
+      setMinistries([...list, { id: newId(), ...form }]);
+      showToast("Ministry added successfully!");
+    }
+    closeModal();
+  };
+
+  const edit = (m) => {
+    setEditId(m.id);
+    setForm({ icon: m.icon || "⛪", title: m.title, desc: m.desc, freq: m.freq });
+    setModal(true);
+  };
+
+  const remove = (id) => {
+    if (window.confirm("Are you sure you want to delete this ministry?")) {
+      setMinistries(list.filter(x => x.id !== id));
+      showToast("Ministry deleted successfully!", "info");
+    }
+  };
+
+  const closeModal = () => {
+    setModal(false);
+    setEditId(null);
+    setForm({ icon: "⛪", title: "", desc: "", freq: "" });
+  };
+
+  return (
+    <div>
+      <div className="admin-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <div>
+          <h2>⛪ Manage Ministries</h2>
+          <p style={{ color: "var(--gray-500)", fontSize: "0.9rem" }}>Add, edit, or remove church ministries displayed on the Home and About pages.</p>
+        </div>
+        <button className="btn btn-accent" onClick={() => setModal(true)}>+ Add Ministry</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1rem" }}>
+        {list.map(m => (
+          <div key={m.id || m.title} style={{ padding: "1.25rem", background: "white", borderRadius: "12px", border: "1px solid var(--gray-200)", display: "flex", gap: "1rem", position: "relative" }}>
+            <div style={{ fontSize: "2rem", width: "50px", height: "50px", borderRadius: "10px", background: "var(--primary-light)", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>
+              {m.icon || "⛪"}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "600", color: "var(--gray-800)" }}>{m.title}</h3>
+              <div style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: "500", marginTop: "0.25rem" }}>🕐 {m.freq}</div>
+              <p style={{ fontSize: "0.85rem", color: "var(--gray-600)", marginTop: "0.5rem", lineHeight: "1.4" }}>{m.desc}</p>
+              
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+                <button className="btn btn-outline btn-sm" onClick={() => edit(m)}>Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => remove(m.id)}>Delete</button>
               </div>
             </div>
           </div>
         ))}
+        {list.length === 0 && (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem", background: "var(--gray-50)", borderRadius: "12px", border: "1.5px dashed var(--gray-300)", color: "var(--gray-400)" }}>
+            No ministries found. Click "+ Add Ministry" to create one.
+          </div>
+        )}
       </div>
 
-      {/* Mission Edit */}
-      <div className="content-edit-section">
-        <h3>Our Mission Section</h3>
-        <div className="form-group">
-          <label className="form-label">Mission Image URL</label>
-          <input className="form-input" value={missObj.image} onChange={e => setMissObj({ ...missObj, image: e.target.value })} />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Mission Section Title</label>
-          <input className="form-input" value={missObj.title} onChange={e => setMissObj({ ...missObj, title: e.target.value })} />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Description Text</label>
-          <textarea className="form-textarea" rows={4} value={missObj.text} onChange={e => setMissObj({ ...missObj, text: e.target.value })} />
-        </div>
-      </div>
+      {modal && (
+        <Modal title={editId ? "📝 Edit Ministry" : "➕ Add Ministry"} onClose={closeModal}>
+          <div className="form-group">
+            <label className="form-label">Icon / Emoji *</label>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input className="form-input" style={{ width: "60px", textAlign: "center", fontSize: "1.2rem" }} value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} />
+              <div style={{ display: "flex", gap: "0.3rem" }}>
+                {["⛪", "👶", "🙌", "🔥", "👨‍💼", "👩‍💼", "📖", "🤝", "🕊️"].map(emoji => (
+                  <button key={emoji} type="button" className="btn btn-outline btn-sm" style={{ padding: "0.25rem 0.5rem", fontSize: "1.1rem" }} onClick={() => setForm({ ...form, icon: emoji })}>{emoji}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Ministry Title *</label>
+            <input className="form-input" placeholder="e.g. Youth Ministry" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Frequency / Schedule *</label>
+            <input className="form-input" placeholder="e.g. Every Friday & Sunday" value={form.freq} onChange={e => setForm({ ...form, freq: e.target.value })} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Description *</label>
+            <textarea className="form-textarea" rows={4} placeholder="Describe the ministry's goal and activities..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} />
+          </div>
+
+          <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
+            <button className="btn btn-outline" onClick={closeModal}>Cancel</button>
+            <button className="btn btn-accent" onClick={save}>{editId ? "Save Changes" : "Add Ministry"}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -2501,11 +3944,22 @@ function BirthdayCelebrantsPanel({ birthdays, setBirthdays, showToast }) {
           <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Celebrant's name" /></div>
           <div className="form-group"><label className="form-label">Birthday (e.g., May 25) *</label><input className="form-input" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} placeholder="Month and day" /></div>
           <div className="form-group">
-            <label className="form-label">Photo URL</label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input className="form-input" value={form.photo} onChange={e => setForm(p => ({ ...p, photo: e.target.value }))} placeholder="Image link" style={{ flex: 1 }} />
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCurator(true)}>🖼️ Browse</button>
-            </div>
+            <label className="form-label">Photo Upload</label>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={e => handleLocalImageUpload(e, base64 => {
+                setForm(p => ({ ...p, photo: base64 }));
+                showToast("Celebrant photo uploaded successfully!");
+              }, showToast)}
+              style={{ fontSize: "0.8rem", width: "100%" }}
+            />
+            {form.photo && (
+              <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--gray-500)" }}>Preview:</span>
+                <img src={form.photo} alt="Celebrant Preview" style={{ width: "50px", height: "50px", objectFit: "cover", borderRadius: "50%", border: "1px solid var(--gray-200)" }} />
+              </div>
+            )}
           </div>
           <div className="form-group"><label className="form-label">Personal Message / Verse</label><input className="form-input" value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} placeholder="Birthday greetings" /></div>
         </Modal>
@@ -2602,9 +4056,26 @@ function ProductsPanel({ products, setProducts, showToast }) {
           <div className="form-group"><label className="form-label">Product Name *</label><input className="form-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="T-shirt, cap, mug, etc." /></div>
           <div className="form-group"><label className="form-label">Price (₱) *</label><input className="form-input" type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} placeholder="0.00" /></div>
           <div className="form-group">
-            <label className="form-label">Product Image URL</label>
+            <label className="form-label">Product Image (Upload or URL)</label>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <input className="form-input" value={form.image} onChange={e => setForm(p => ({ ...p, image: e.target.value }))} placeholder="Public web link to image" style={{ flex: 1 }} />
+              <input 
+                type="file" 
+                id="product-file-uploader" 
+                accept="image/*" 
+                style={{ display: "none" }} 
+                onChange={e => handleLocalImageUpload(e, base64 => {
+                  setForm(p => ({ ...p, image: base64 }));
+                  showToast("Product image uploaded successfully!");
+                }, showToast)}
+              />
+              <button 
+                type="button" 
+                className="btn btn-outline btn-sm" 
+                onClick={() => document.getElementById("product-file-uploader").click()}
+              >
+                📂 Upload
+              </button>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCurator(true)}>🖼️ Browse</button>
             </div>
           </div>
@@ -2635,15 +4106,25 @@ function ActivitiesPanel({ activities, setActivities, showToast }) {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showCurator, setShowCurator] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", ministry: "", date: "", time: "", location: "", image: "" });
+  const [form, setForm] = useState({ title: "", description: "", ministry: "", date: "", time: "", location: "", image: "", images: [] });
   
   const save = () => {
     if (!form.title || !form.date) return;
+    const itemData = {
+      title: form.title,
+      description: form.description,
+      ministry: form.ministry || "",
+      date: form.date,
+      time: form.time || "",
+      location: form.location || "",
+      image: form.image || "",
+      images: form.images && form.images.length > 0 ? form.images : (form.image ? [form.image] : [])
+    };
     if (editId) {
-      setActivities(activities.map(a => a.id === editId ? { ...a, ...form } : a));
+      setActivities(activities.map(a => a.id === editId ? { ...a, ...itemData } : a));
       showToast("Activity updated successfully!");
     } else {
-      setActivities([{ id: newId(), ...form, createdAt: today() }, ...activities]);
+      setActivities([{ id: newId(), ...itemData, createdAt: today() }, ...activities]);
       showToast("Activity posted successfully!");
     }
     closeModal();
@@ -2658,7 +4139,8 @@ function ActivitiesPanel({ activities, setActivities, showToast }) {
       date: a.date, 
       time: a.time || "", 
       location: a.location || "", 
-      image: a.image || "" 
+      image: a.image || "",
+      images: a.images || []
     });
     setModal(true);
   };
@@ -2673,7 +4155,7 @@ function ActivitiesPanel({ activities, setActivities, showToast }) {
   const closeModal = () => {
     setModal(false);
     setEditId(null);
-    setForm({ title: "", description: "", ministry: "", date: "", time: "", location: "", image: "" });
+    setForm({ title: "", description: "", ministry: "", date: "", time: "", location: "", image: "", images: [] });
   };
 
   return (
@@ -2741,6 +4223,102 @@ function ActivitiesPanel({ activities, setActivities, showToast }) {
               </button>
             </label>
             <input className="form-input" value={form.image} onChange={e => setForm(p => ({ ...p, image: e.target.value }))} placeholder="Public web link to a photo" />
+          </div>
+
+          <div className="form-group" style={{ borderTop: "1px solid var(--gray-200)", paddingTop: "1rem" }}>
+            <label className="form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Activity Images Slideshow (Up to 5 Slides)</span>
+              <button 
+                type="button" 
+                className="btn btn-outline btn-sm" 
+                style={{ padding: "0.1rem 0.5rem", fontSize: "0.7rem", height: "auto" }}
+                onClick={() => {
+                  if (form.image) {
+                    setForm(p => ({ ...p, images: [...(p.images || []), p.image].slice(0, 5) }));
+                    showToast("Cover image added to slideshow!");
+                  }
+                }}
+              >
+                Use Cover as Slide
+              </button>
+            </label>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem", marginTop: "0.5rem" }}>
+              {[0, 1, 2, 3, 4].map(idx => {
+                const img = form.images?.[idx];
+                return (
+                  <div 
+                    key={idx} 
+                    style={{ 
+                      border: "1.5px dashed var(--gray-300)", 
+                      borderRadius: "8px", 
+                      aspectRatio: "1", 
+                      display: "flex", 
+                      alignItems: "center", 
+                      justifyContent: "center", 
+                      cursor: "pointer", 
+                      position: "relative",
+                      overflow: "hidden",
+                      background: img ? `url(${img})` : "var(--gray-50)",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center"
+                    }}
+                    onClick={() => {
+                      document.getElementById(`activity-file-picker-${idx}`).click();
+                    }}
+                  >
+                    {!img && <span style={{ fontSize: "1.2rem", color: "var(--gray-400)" }}>+</span>}
+                    {img && (
+                      <button 
+                        type="button"
+                        style={{
+                          position: "absolute",
+                          top: "2px",
+                          right: "2px",
+                          background: "var(--danger)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: "16px",
+                          height: "16px",
+                          fontSize: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          zIndex: 5
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updated = [...(form.images || [])];
+                          updated.splice(idx, 1);
+                          setForm(p => ({ ...p, images: updated }));
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <input 
+                      id={`activity-file-picker-${idx}`}
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: "none" }}
+                      onChange={e => {
+                        handleLocalImageUpload(e, base64 => {
+                          const updated = [...(form.images || [])];
+                          updated[idx] = base64;
+                          setForm(p => ({ ...p, images: updated.filter(Boolean) }));
+                          showToast(`Image #${idx + 1} uploaded successfully!`);
+                        }, showToast);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <span style={{ fontSize: "0.7rem", color: "var(--gray-400)", display: "block", marginTop: "0.5rem" }}>
+              Click any slot to upload a local image. Supported formats are JPG/PNG. Images will be automatically optimized.
+            </span>
           </div>
         </Modal>
       )}
@@ -2966,6 +4544,225 @@ function NotesPanel({ showToast }) {
   );
 }
 
+// ─── INQUIRIES & BRAND IDENTITY PANEL ───
+function InquiriesPanel({ inquiries, setInquiries, brandSettings, setBrandSettings, showToast }) {
+  const [inquiryEmail, setInquiryEmail] = useState(brandSettings?.inquiryEmail || "lorence.almadrigo@gmail.com");
+  const [financePin, setFinancePin] = useState(brandSettings?.financePin || "1234");
+  const [logoType, setLogoType] = useState(brandSettings?.logoType || "emoji");
+  const [logoEmoji, setLogoEmoji] = useState(brandSettings?.logoEmoji || "✝️");
+  const [logoImage, setLogoImage] = useState(brandSettings?.logoImage || "");
+  const [favicon, setFavicon] = useState(brandSettings?.favicon || "");
+  
+  const saveSettings = () => {
+    setBrandSettings({
+      ...brandSettings,
+      inquiryEmail,
+      financePin,
+      logoType,
+      logoEmoji,
+      logoImage,
+      favicon
+    });
+    showToast("System & Brand settings applied successfully!");
+  };
+
+  const removeInquiry = (id) => {
+    if (window.confirm("Are you sure you want to delete this message inquiry?")) {
+      setInquiries(inquiries.filter(i => i.id !== id));
+      showToast("Inquiry deleted successfully!", "info");
+    }
+  };
+
+  const toggleResolved = (id) => {
+    setInquiries(inquiries.map(i => {
+      if (i.id === id) {
+        const nextStatus = i.status === "resolved" ? "unread" : "resolved";
+        showToast(`Inquiry marked as ${nextStatus}!`);
+        return { ...i, status: nextStatus };
+      }
+      return i;
+    }));
+  };
+
+  return (
+    <div>
+      <div className="admin-header">
+        <h2>Inquiries & Brand Settings</h2>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "2rem", alignItems: "start" }}>
+        
+        {/* Left Side: Inquiries Log */}
+        <div className="content-edit-section" style={{ margin: 0 }}>
+          <h3 style={{ marginBottom: "1rem" }}>✉️ Contact Inquiries Log</h3>
+          <p style={{ fontSize: "0.85rem", color: "var(--gray-500)", marginBottom: "1.5rem" }}>
+            Below are the messages submitted by visitors through the public contact form.
+          </p>
+
+          <table className="data-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Sender</th>
+                <th>Message</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inquiries.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--gray-400)", padding: "2.5rem", fontStyle: "italic" }}>
+                    No inquiries received yet.
+                  </td>
+                </tr>
+              ) : (
+                inquiries.map(inq => (
+                  <tr key={inq.id} style={{ opacity: inq.status === "resolved" ? 0.7 : 1 }}>
+                    <td>{inq.date}</td>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{inq.name}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--gray-500)" }}>{inq.email}</div>
+                    </td>
+                    <td style={{ maxWidth: "250px", fontSize: "0.8rem", whiteSpace: "pre-line" }}>
+                      {inq.message}
+                    </td>
+                    <td>
+                      <span className={`tag ${inq.status === "resolved" ? "income" : "announcement"}`}>
+                        {inq.status || "unread"}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => toggleResolved(inq.id)}>
+                          {inq.status === "resolved" ? "Reopen" : "Resolve"}
+                        </button>
+                        <a 
+                          href={`mailto:${inq.email}?subject=Re: Inquiry from Faithway Church Website&body=Hi ${inq.name},\n\nThank you for reaching out...`} 
+                          className="btn btn-sm" 
+                          style={{ background: "var(--primary-light)" }}
+                        >
+                          Reply
+                        </a>
+                        <button className="btn btn-danger btn-sm" onClick={() => removeInquiry(inq.id)}>
+                          ✕
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Right Side: Brand & Security Settings */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+          
+          <div className="content-edit-section" style={{ margin: 0 }}>
+            <h3>⚙️ System & Email Routing</h3>
+            
+            <div className="form-group">
+              <label className="form-label">Inquiry Target Email</label>
+              <input 
+                className="form-input" 
+                value={inquiryEmail} 
+                onChange={e => setInquiryEmail(e.target.value)} 
+                placeholder="lorence.almadrigo@gmail.com" 
+              />
+              <span style={{ fontSize: "0.7rem", color: "var(--gray-400)", display: "block", marginTop: "0.25rem" }}>
+                Public inquiries will redirect the user to email this address and log the submission here.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Savings Security PIN</label>
+              <input 
+                className="form-input" 
+                type="text"
+                maxLength={8}
+                value={financePin} 
+                onChange={e => setFinancePin(e.target.value)} 
+                placeholder="1234" 
+              />
+              <span style={{ fontSize: "0.7rem", color: "var(--gray-400)", display: "block", marginTop: "0.25rem" }}>
+                PIN required to unlock the private "Savings & Finance" panel.
+              </span>
+            </div>
+            
+            <button className="btn btn-full" onClick={saveSettings} style={{ marginTop: "1rem" }}>
+              Save Core Settings
+            </button>
+          </div>
+
+          <div className="content-edit-section" style={{ margin: 0 }}>
+            <h3>🎨 Brand Identity Customizer</h3>
+
+            <div className="form-group">
+              <label className="form-label">Logo Customization Type</label>
+              <select className="form-select" value={logoType} onChange={e => setLogoType(e.target.value)}>
+                <option value="emoji">Emoji Icon</option>
+                <option value="image">Image Upload</option>
+              </select>
+            </div>
+
+            {logoType === "emoji" ? (
+              <div className="form-group">
+                <label className="form-label">Logo Emoji</label>
+                <input className="form-input" value={logoEmoji} onChange={e => setLogoEmoji(e.target.value)} placeholder="⛪ or ✝️" />
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Logo Image Upload</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => handleLocalImageUpload(e, base64 => {
+                    setLogoImage(base64);
+                    showToast("Logo image uploaded successfully!");
+                  }, showToast)}
+                  style={{ fontSize: "0.8rem", width: "100%" }}
+                />
+                {logoImage && (
+                  <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--gray-500)" }}>Preview:</span>
+                    <img src={logoImage} alt="Logo Preview" style={{ width: "42px", height: "42px", objectFit: "contain", borderRadius: "50%", background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px", border: "1px solid var(--gray-200)" }} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-group" style={{ borderTop: "1px solid var(--gray-200)", paddingTop: "1rem" }}>
+              <label className="form-label">Browser Tab Favicon Upload</label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={e => handleLocalImageUpload(e, base64 => {
+                  setFavicon(base64);
+                  showToast("Favicon uploaded successfully!");
+                }, showToast)}
+                style={{ fontSize: "0.8rem", width: "100%" }}
+              />
+              {favicon && (
+                <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--gray-500)" }}>Preview:</span>
+                  <img src={favicon} alt="Favicon Preview" style={{ width: "32px", height: "32px", objectFit: "contain", borderRadius: "4px", background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px", border: "1px solid var(--gray-200)" }} />
+                </div>
+              )}
+            </div>
+
+            <button className="btn btn-full btn-accent" onClick={saveSettings} style={{ marginTop: "1rem" }}>
+              Apply Brand Assets
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN MAIN CONTAINER PAGE ───
 function AdminPage({ 
   announcements, setAnnouncements, 
@@ -2975,24 +4772,49 @@ function AdminPage({
   stats, setStats,
   birthdays, setBirthdays,
   products, setProducts,
+  ministries, setMinistries,
   activities, setActivities,
   records, setRecords,
-  showToast
+  brandSettings, setBrandSettings,
+  inquiries, setInquiries,
+  pageContents, setPageContents,
+  showToast,
+  adminCredentials, setAdminCredentials,
+  orders, setOrders
 }) {
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // PIN Gate modal states
+  const [financeUnlocked, setFinanceUnlocked] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinError, setPinError] = useState("");
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "content", label: "Site Content", icon: "📝" },
     { id: "savings", label: "Savings & Finance", icon: "₱" },
+    { id: "inquiries", label: "Inquiries", icon: "✉️" },
     { id: "activities", label: "Activities", icon: "⛪" },
+    { id: "ministries", label: "Ministries", icon: "🤝" },
     { id: "products", label: "Shop Products", icon: "👕" },
+    { id: "orders", label: "Store Orders", icon: "🛒" },
     { id: "birthdays", label: "Birthday Celebrants", icon: "🎂" },
     { id: "announcements", label: "Announcements", icon: "📢" },
     { id: "events", label: "Events", icon: "📅" },
     { id: "notes", label: "Notepad", icon: "📋" },
   ];
+
+  const handleTabChange = (targetTab) => {
+    if (targetTab === "savings" && !financeUnlocked) {
+      setPinModalOpen(true);
+      setEnteredPin("");
+      setPinError("");
+    } else {
+      setTab(targetTab);
+    }
+  };
 
   const activeLabel = navItems.find(i => i.id === tab)?.label || "";
 
@@ -3017,7 +4839,7 @@ function AdminPage({
           <div className="admin-sidebar-title">Church Management</div>
           {navItems.map(item => (
             <div key={item.id} className={`admin-nav-item${tab === item.id ? " active" : ""}`} onClick={() => {
-              setTab(item.id);
+              handleTabChange(item.id);
               setSidebarOpen(false);
             }}>
               <span>{item.icon}</span><span>{item.label}</span>
@@ -3036,8 +4858,10 @@ function AdminPage({
               slides={slides} setSlides={setSlides}
               mission={mission} setMission={setMission}
               stats={stats} setStats={setStats}
-              setTab={setTab} 
+              setTab={handleTabChange} 
               showToast={showToast}
+              adminCredentials={adminCredentials}
+              setAdminCredentials={setAdminCredentials}
             />
           )}
           {tab === "content" && (
@@ -3045,11 +4869,30 @@ function AdminPage({
               slides={slides} setSlides={setSlides} 
               mission={mission} setMission={setMission} 
               stats={stats} setStats={setStats} 
+              pageContents={pageContents} setPageContents={setPageContents}
               showToast={showToast}
             />
           )}
           {tab === "savings" && (
-            <SavingsPanel records={records} setRecords={setRecords} showToast={showToast} />
+            <SavingsPanel 
+              records={records} 
+              setRecords={setRecords} 
+              showToast={showToast} 
+              onLock={() => {
+                setFinanceUnlocked(false);
+                setTab("dashboard");
+                showToast("Savings & Finance locked successfully!", "info");
+              }}
+            />
+          )}
+          {tab === "inquiries" && (
+            <InquiriesPanel 
+              inquiries={inquiries} 
+              setInquiries={setInquiries} 
+              brandSettings={brandSettings} 
+              setBrandSettings={setBrandSettings} 
+              showToast={showToast} 
+            />
           )}
           {tab === "activities" && (
             <ActivitiesPanel activities={activities} setActivities={setActivities} showToast={showToast} />
@@ -3069,15 +4912,104 @@ function AdminPage({
           {tab === "notes" && (
             <NotesPanel showToast={showToast} />
           )}
+          {tab === "ministries" && (
+            <MinistriesPanel ministries={ministries} setMinistries={setMinistries} showToast={showToast} />
+          )}
+          {tab === "orders" && (
+            <OrdersPanel
+              orders={orders}
+              setOrders={setOrders}
+              showToast={showToast}
+              inquiryEmail={brandSettings?.inquiryEmail}
+            />
+          )}
         </div>
       </div>
+
+      {pinModalOpen && (
+        <Modal 
+          title="🔒 Security Verification" 
+          onClose={() => setPinModalOpen(false)}
+          footer={
+            <>
+              <button className="btn btn-outline" onClick={() => setPinModalOpen(false)}>Cancel</button>
+              <button className="btn" onClick={() => {
+                const currentPin = brandSettings?.financePin || "1234";
+                if (enteredPin === currentPin) {
+                  setFinanceUnlocked(true);
+                  setPinModalOpen(false);
+                  setTab("savings");
+                  showToast("Savings & Finance unlocked successfully!");
+                } else {
+                  setPinError("Incorrect security PIN. Please try again.");
+                }
+              }}>Unlock</button>
+            </>
+          }
+        >
+          <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🔐</div>
+            <p style={{ fontSize: "0.9rem", color: "var(--gray-600)" }}>
+              Access to Savings & Finance is restricted. Please enter the administrator security PIN to proceed.
+            </p>
+          </div>
+          <div className="form-group" style={{ maxWidth: "220px", margin: "0 auto" }}>
+            <input 
+              className="form-input" 
+              type="password" 
+              maxLength={8}
+              value={enteredPin} 
+              onChange={e => setEnteredPin(e.target.value)} 
+              placeholder="••••" 
+              style={{ textAlign: "center", fontSize: "1.5rem", letterSpacing: "0.5em", padding: "0.5rem" }} 
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const currentPin = brandSettings?.financePin || "1234";
+                  if (enteredPin === currentPin) {
+                    setFinanceUnlocked(true);
+                    setPinModalOpen(false);
+                    setTab("savings");
+                    showToast("Savings & Finance unlocked successfully!");
+                  } else {
+                    setPinError("Incorrect security PIN. Please try again.");
+                  }
+                }
+              }}
+            />
+          </div>
+          {pinError && (
+            <div className="tag expense" style={{ width: "100%", textAlign: "center", padding: "0.6rem", marginTop: "1rem", borderRadius: "8px", fontWeight: "600", fontSize: "0.8rem" }}>
+              {pinError}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
 
+// Initialize Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyB0naynaT4FKNP0ftGibQHUHsKzpqmHDls",
+  authDomain: "fbc-navarro.firebaseapp.com",
+  projectId: "fbc-navarro",
+  storageBucket: "fbc-navarro.firebasestorage.app",
+  messagingSenderId: "1082550837677",
+  appId: "1:1082550837677:web:559566214c96a32d990124",
+  measurementId: "G-QG891C2GXB"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 // ─── APP MAIN ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("home");
+  const [cart, setCart] = useState([]);
+
+  // Reset scroll to top on every page change
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [page]);
   
   // Toast Alert State
   const [toast, setToast] = useState(null);
@@ -3097,18 +5029,196 @@ export default function App() {
     return sessionStorage.getItem("fbc_admin_logged") === "true";
   });
 
-  // Local Storage Data states
-  const [announcements, setAnnouncements] = useLocalStorage("fbc_announcements", []);
-  const [events, setEvents] = useLocalStorage("fbc_events", []);
-  const [records, setRecords] = useLocalStorage("fbc_savings", []);
-  const [activities, setActivities] = useLocalStorage("fbc_activities", DEFAULT_ACTIVITIES);
-  
-  // New Local Storage customizable content states
-  const [slides, setSlides] = useLocalStorage("fbc_slides", DEFAULT_SLIDES);
-  const [mission, setMission] = useLocalStorage("fbc_mission", DEFAULT_MISSION);
-  const [stats, setStats] = useLocalStorage("fbc_church_stats", DEFAULT_STATS);
-  const [birthdays, setBirthdays] = useLocalStorage("fbc_birthdays", DEFAULT_BIRTHDAYS);
-  const [products, setProducts] = useLocalStorage("fbc_products", DEFAULT_PRODUCTS);
+  // States backed up by local cache, synchronized reactively with Firestore
+  const [announcements, setAnnouncementsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_announcements"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [events, setEventsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_events"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [records, setRecordsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_savings"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [activities, setActivitiesState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_activities"); return s ? JSON.parse(s) : DEFAULT_ACTIVITIES; } catch { return DEFAULT_ACTIVITIES; }
+  });
+  const [slides, setSlidesState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_slides"); return s ? JSON.parse(s) : DEFAULT_SLIDES; } catch { return DEFAULT_SLIDES; }
+  });
+  const [mission, setMissionState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_mission"); return s ? JSON.parse(s) : DEFAULT_MISSION; } catch { return DEFAULT_MISSION; }
+  });
+  const [stats, setStatsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_church_stats"); return s ? JSON.parse(s) : DEFAULT_STATS; } catch { return DEFAULT_STATS; }
+  });
+  const [birthdays, setBirthdaysState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_birthdays"); return s ? JSON.parse(s) : DEFAULT_BIRTHDAYS; } catch { return DEFAULT_BIRTHDAYS; }
+  });
+  const [products, setProductsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_products"); return s ? JSON.parse(s) : DEFAULT_PRODUCTS; } catch { return DEFAULT_PRODUCTS; }
+  });
+  const [ministries, setMinistriesState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_ministries"); return s ? JSON.parse(s) : DEFAULT_MINISTRIES; } catch { return DEFAULT_MINISTRIES; }
+  });
+  const [inquiries, setInquiriesState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_inquiries"); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [pageContents, setPageContentsState] = useState(() => {
+    try { const s = localStorage.getItem("fbc_page_contents"); return s ? JSON.parse(s) : DEFAULT_PAGE_CONTENTS; } catch { return DEFAULT_PAGE_CONTENTS; }
+  });
+  const [brandSettings, setBrandSettingsState] = useState(() => {
+    try {
+      const s = localStorage.getItem("fbc_brand_settings");
+      return s ? JSON.parse(s) : {
+        logoType: "emoji",
+        logoEmoji: "✝️",
+        logoImage: "",
+        favicon: "",
+        financePin: "1234",
+        inquiryEmail: "lorence.almadrigo@gmail.com"
+      };
+    } catch {
+      return {
+        logoType: "emoji",
+        logoEmoji: "✝️",
+        logoImage: "",
+        favicon: "",
+        financePin: "1234",
+        inquiryEmail: "lorence.almadrigo@gmail.com"
+      };
+    }
+  });
+
+  const [adminCredentials, setAdminCredentialsState] = useState(() => {
+    try {
+      const s = localStorage.getItem("fbc_admin_credentials");
+      return s ? JSON.parse(s) : {
+        username: obfuscate("admin"),
+        password: obfuscate("fbcnavarro2024"),
+        securityQuestion: "What is the name of the church branch location?",
+        securityAnswer: obfuscate("Navarro")
+      };
+    } catch {
+      return {
+        username: obfuscate("admin"),
+        password: obfuscate("fbcnavarro2024"),
+        securityQuestion: "What is the name of the church branch location?",
+        securityAnswer: obfuscate("Navarro")
+      };
+    }
+  });
+
+  const [orders, setOrdersState] = useState(() => {
+    try {
+      const s = localStorage.getItem("fbc_orders");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Helper to create synchronous local state updates + async Firestore writes
+  const createWriter = (docName, localKey, stateSetter) => {
+    return (newData) => {
+      stateSetter(prev => {
+        const resolved = typeof newData === "function" ? newData(prev) : newData;
+        try { localStorage.setItem(localKey, JSON.stringify(resolved)); } catch (e) {}
+        setDoc(doc(db, "fbc_navarro", docName), { data: resolved }).catch(err => {
+          console.error(`Firestore ${docName} write error:`, err);
+        });
+        return resolved;
+      });
+    };
+  };
+
+  const setAnnouncements = createWriter("announcements", "fbc_announcements", setAnnouncementsState);
+  const setEvents = createWriter("events", "fbc_events", setEventsState);
+  const setRecords = createWriter("savings", "fbc_savings", setRecordsState);
+  const setActivities = createWriter("activities", "fbc_activities", setActivitiesState);
+  const setSlides = createWriter("slides", "fbc_slides", setSlidesState);
+  const setMission = createWriter("mission", "fbc_mission", setMissionState);
+  const setStats = createWriter("stats", "fbc_church_stats", setStatsState);
+  const setBirthdays = createWriter("birthdays", "fbc_birthdays", setBirthdaysState);
+  const setProducts = createWriter("products", "fbc_products", setProductsState);
+  const setMinistries = createWriter("ministries", "fbc_ministries", setMinistriesState);
+  const setInquiries = createWriter("inquiries", "fbc_inquiries", setInquiriesState);
+  const setPageContents = createWriter("pageContents", "fbc_page_contents", setPageContentsState);
+  const setBrandSettings = createWriter("brandSettings", "fbc_brand_settings", setBrandSettingsState);
+  const setAdminCredentials = createWriter("adminCredentials", "fbc_admin_credentials", setAdminCredentialsState);
+  const setOrders = createWriter("orders", "fbc_orders", setOrdersState);
+
+  // Firestore Real-Time Subscriptions & Auto-Seeding Safeguard
+  useEffect(() => {
+    const syncs = [
+      { docName: "announcements", stateSetter: setAnnouncementsState, localKey: "fbc_announcements", defaultValue: [] },
+      { docName: "events", stateSetter: setEventsState, localKey: "fbc_events", defaultValue: [] },
+      { docName: "savings", stateSetter: setRecordsState, localKey: "fbc_savings", defaultValue: [] },
+      { docName: "activities", stateSetter: setActivitiesState, localKey: "fbc_activities", defaultValue: DEFAULT_ACTIVITIES },
+      { docName: "slides", stateSetter: setSlidesState, localKey: "fbc_slides", defaultValue: DEFAULT_SLIDES },
+      { docName: "mission", stateSetter: setMissionState, localKey: "fbc_mission", defaultValue: DEFAULT_MISSION },
+      { docName: "stats", stateSetter: setStatsState, localKey: "fbc_church_stats", defaultValue: DEFAULT_STATS },
+      { docName: "birthdays", stateSetter: setBirthdaysState, localKey: "fbc_birthdays", defaultValue: DEFAULT_BIRTHDAYS },
+      { docName: "products", stateSetter: setProductsState, localKey: "fbc_products", defaultValue: DEFAULT_PRODUCTS },
+      { docName: "ministries", stateSetter: setMinistriesState, localKey: "fbc_ministries", defaultValue: DEFAULT_MINISTRIES },
+      { docName: "inquiries", stateSetter: setInquiriesState, localKey: "fbc_inquiries", defaultValue: [] },
+      { docName: "pageContents", stateSetter: setPageContentsState, localKey: "fbc_page_contents", defaultValue: DEFAULT_PAGE_CONTENTS },
+      { docName: "brandSettings", stateSetter: setBrandSettingsState, localKey: "fbc_brand_settings", defaultValue: {
+        logoType: "emoji",
+        logoEmoji: "✝️",
+        logoImage: "",
+        favicon: "",
+        financePin: "1234",
+        inquiryEmail: "lorence.almadrigo@gmail.com"
+      } },
+      { docName: "adminCredentials", stateSetter: setAdminCredentialsState, localKey: "fbc_admin_credentials", defaultValue: {
+        username: obfuscate("admin"),
+        password: obfuscate("fbcnavarro2024"),
+        securityQuestion: "What is the name of the church branch location?",
+        securityAnswer: obfuscate("Navarro")
+      } },
+      { docName: "orders", stateSetter: setOrdersState, localKey: "fbc_orders", defaultValue: [] }
+    ];
+
+    const unsubscribes = syncs.map(({ docName, stateSetter, localKey, defaultValue }) => {
+      return onSnapshot(doc(db, "fbc_navarro", docName), (snapshot) => {
+        if (snapshot.exists()) {
+          const cloudData = snapshot.data()?.data;
+          if (cloudData !== undefined) {
+            stateSetter(cloudData);
+            try { localStorage.setItem(localKey, JSON.stringify(cloudData)); } catch (e) {}
+          }
+        } else {
+          const currentLocal = localStorage.getItem(localKey);
+          let seedData = defaultValue;
+          try {
+            if (currentLocal) {
+              const parsed = JSON.parse(currentLocal);
+              if (parsed && (Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0)) {
+                seedData = parsed;
+              }
+            }
+          } catch (e) {}
+          setDoc(doc(db, "fbc_navarro", docName), { data: seedData }).catch(err => {
+            console.error(`Error auto-seeding ${docName}:`, err);
+          });
+        }
+      }, (error) => {
+        console.error(`Snapshot error for ${docName}:`, error);
+      });
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, []);
+
+  useEffect(() => {
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.getElementsByTagName("head")[0].appendChild(link);
+    }
+    link.href = brandSettings?.favicon || "/favicon.svg";
+  }, [brandSettings?.favicon]);
 
   const handleLogin = () => {
     setIsLogged(true);
@@ -3124,7 +5234,7 @@ export default function App() {
   return (
     <>
       <style>{globalStyles}</style>
-      <Nav page={page} setPage={setPage} isLogged={isLogged} onLogout={handleLogout} />
+      <Nav page={page} setPage={setPage} isLogged={isLogged} onLogout={handleLogout} brandSettings={brandSettings} />
       
       {page === "home" && (
         <HomePage 
@@ -3134,20 +5244,33 @@ export default function App() {
           mission={mission} 
           stats={stats} 
           birthdays={birthdays}
+          ministries={ministries}
           setPage={setPage}
+          brandSettings={brandSettings}
+          pageContents={pageContents}
+          inquiries={inquiries}
+          setInquiries={setInquiries}
+          showToast={showToast}
         />
       )}
       
       {page === "about" && (
-        <AboutPage setPage={setPage} />
+        <AboutPage setPage={setPage} brandSettings={brandSettings} pageContents={pageContents} ministries={ministries} />
       )}
       
       {page === "activities" && (
-        <ActivitiesPage activities={activities} setPage={setPage} />
+        <ActivitiesPage 
+          activities={activities} 
+          setPage={setPage} 
+          brandSettings={brandSettings} 
+          pageContents={pageContents} 
+          birthdays={birthdays} 
+          ministries={ministries}
+        />
       )}
       
       {page === "shop" && (
-        <ShopPage products={products} setPage={setPage} />
+        <ShopPage products={products} setPage={setPage} brandSettings={brandSettings} pageContents={pageContents} cart={cart} setCart={setCart} orders={orders} setOrders={setOrders} showToast={showToast} ministries={ministries} />
       )}
       
       {page === "admin" && (
@@ -3167,14 +5290,26 @@ export default function App() {
             setBirthdays={setBirthdays}
             products={products}
             setProducts={setProducts}
+            ministries={ministries}
+            setMinistries={setMinistries}
             activities={activities}
             setActivities={setActivities}
             records={records}
             setRecords={setRecords}
+            brandSettings={brandSettings}
+            setBrandSettings={setBrandSettings}
+            inquiries={inquiries}
+            setInquiries={setInquiries}
+            pageContents={pageContents}
+            setPageContents={setPageContents}
             showToast={showToast}
+            adminCredentials={adminCredentials}
+            setAdminCredentials={setAdminCredentials}
+            orders={orders}
+            setOrders={setOrders}
           />
         ) : (
-          <AdminLoginPage onLogin={handleLogin} />
+          <AdminLoginPage onLogin={handleLogin} adminCredentials={adminCredentials} setAdminCredentials={setAdminCredentials} showToast={showToast} />
         )
       )}
       
@@ -3186,3 +5321,6 @@ export default function App() {
     </>
   );
 }
+
+
+
